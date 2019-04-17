@@ -95,29 +95,4 @@ void calculate_new_path(car_type car,
   }
 }
 
-void calculate_new_path_with_s_and_d(car_type car,
-                                     vector<double> previous_path_x,
-                                     vector<double> previous_path_y,
-                                     vector<double> &next_x_vals,
-                                     vector<double> &next_y_vals,
-                                     vector<map_waypoints_type> &map_waypoints) {
-
-  // calculate max increase in 0.02 seconds
-  double max_increase =  std::max(0.0, car.speed * INTERVAL_IN_SECONDS + MAX_ACC_M_PER_S * INTERVAL_IN_SECONDS);
-  std::cout << "Max increase: " << max_increase << std::endl;
-  double final_increase = std::min(MAX_SPEED_METER_PER_INTERVAL, max_increase);
-  std::cout << "Final increase: " << final_increase << std::endl;
-
-  /*
-   * use d and s and convert to xy
-   */
-  for (int i = 0; i < 50; ++i) {
-    std::cout << "Car d: " << car.d << std::endl;
-    vector<double> new_xy = getXY(car.s + (i + 1) * final_increase, 6, map_waypoints);
-    next_x_vals.push_back(new_xy[0]);
-    next_y_vals.push_back(new_xy[1]);
-  }
-
-}
-
 #endif //PATH_PLANNING_PATH_H
