@@ -9,6 +9,22 @@
 using std::string;
 using std::vector;
 
+struct map_waypoints_type {
+  double x;
+  double y;
+  float s;
+  float d_x;
+  float d_y;
+
+  void print() {
+    printf("%.2f %.2f %.2f %.2f %.2f\n", x, y, s, d_x, d_y);
+  }
+};
+
+const double INTERVAL_IN_SECONDS = 0.02; // seconds
+const double MAX_SPEED_METER_PER_INTERVAL = 0.400; // meter per 0.02 second
+const double MAX_ACC_M_PER_S = 10.0; // km/s^2
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 //   else the empty string "" will be returned.
@@ -40,15 +56,12 @@ double distance(double x1, double y1, double x2, double y2) {
 }
 
 // Calculate closest waypoint to current x, y position
-int ClosestWaypoint(double x, double y, const vector<double> &maps_x, 
-                    const vector<double> &maps_y) {
+int ClosestWaypoint(double x, double y, const vector<map_waypoints_type> &map) {
   double closestLen = 100000; //large number
   int closestWaypoint = 0;
 
-  for (int i = 0; i < maps_x.size(); ++i) {
-    double map_x = maps_x[i];
-    double map_y = maps_y[i];
-    double dist = distance(x,y,map_x,map_y);
+  for (int i = 0; i < map.size(); ++i) {
+    double dist = distance(x, y, map[i].x, map[i].y);
     if (dist < closestLen) {
       closestLen = dist;
       closestWaypoint = i;
@@ -59,21 +72,20 @@ int ClosestWaypoint(double x, double y, const vector<double> &maps_x,
 }
 
 // Returns next waypoint of the closest waypoint
-int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, 
-                 const vector<double> &maps_y) {
-  int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
+int NextWaypoint(double x, double y, double theta, const vector<map_waypoints_type> &map) {
+  int closestWaypoint = ClosestWaypoint(x,y,map);
 
-  double map_x = maps_x[closestWaypoint];
-  double map_y = maps_y[closestWaypoint];
+  double map_x = map[closestWaypoint].x;
+  double map_y = map[closestWaypoint].y;
 
-  double heading = atan2((map_y-y),(map_x-x));
+  double heading = atan2((map_y - y),(map_x - x));
 
-  double angle = fabs(theta-heading);
+  double angle = fabs(theta - heading);
   angle = std::min(2*pi() - angle, angle);
 
   if (angle > pi()/2) {
     ++closestWaypoint;
-    if (closestWaypoint == maps_x.size()) {
+    if (closestWaypoint == map.size()) {
       closestWaypoint = 0;
     }
   }
@@ -83,20 +95,19 @@ int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x,
 
 // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
 vector<double> getFrenet(double x, double y, double theta, 
-                         const vector<double> &maps_x, 
-                         const vector<double> &maps_y) {
-  int next_wp = NextWaypoint(x,y, theta, maps_x,maps_y);
+                         const vector<map_waypoints_type> &map) {
+  int next_wp = NextWaypoint(x, y, theta, map);
 
   int prev_wp;
   prev_wp = next_wp-1;
   if (next_wp == 0) {
-    prev_wp  = maps_x.size()-1;
+    prev_wp  = map.size()-1;
   }
 
-  double n_x = maps_x[next_wp]-maps_x[prev_wp];
-  double n_y = maps_y[next_wp]-maps_y[prev_wp];
-  double x_x = x - maps_x[prev_wp];
-  double x_y = y - maps_y[prev_wp];
+  double n_x = map[next_wp].x - map[prev_wp].x;
+  double n_y = map[next_wp].y - map[prev_wp].y;
+  double x_x = x - map[prev_wp].x;
+  double x_y = y - map[prev_wp].y;
 
   // find the projection of x onto n
   double proj_norm = (x_x*n_x+x_y*n_y)/(n_x*n_x+n_y*n_y);
@@ -106,8 +117,8 @@ vector<double> getFrenet(double x, double y, double theta,
   double frenet_d = distance(x_x,x_y,proj_x,proj_y);
 
   //see if d value is positive or negative by comparing it to a center point
-  double center_x = 1000-maps_x[prev_wp];
-  double center_y = 2000-maps_y[prev_wp];
+  double center_x = 1000-map[prev_wp].x;
+  double center_y = 2000-map[prev_wp].y;
   double centerToPos = distance(center_x,center_y,x_x,x_y);
   double centerToRef = distance(center_x,center_y,proj_x,proj_y);
 
@@ -118,7 +129,7 @@ vector<double> getFrenet(double x, double y, double theta,
   // calculate s value
   double frenet_s = 0;
   for (int i = 0; i < prev_wp; ++i) {
-    frenet_s += distance(maps_x[i],maps_y[i],maps_x[i+1],maps_y[i+1]);
+    frenet_s += distance(map[i].x, map[i].y, map[i+1].x, map[i+1].y);
   }
 
   frenet_s += distance(0,0,proj_x,proj_y);
@@ -127,24 +138,22 @@ vector<double> getFrenet(double x, double y, double theta,
 }
 
 // Transform from Frenet s,d coordinates to Cartesian x,y
-vector<double> getXY(double s, double d, const vector<double> &maps_s, 
-                     const vector<double> &maps_x, 
-                     const vector<double> &maps_y) {
+vector<double> getXY(double s, double d, const vector<map_waypoints_type> &map) {
   int prev_wp = -1;
 
-  while (s > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1))) {
+  while (s > map[prev_wp+1].s && (prev_wp < (int)(map.size()-1))) {
     ++prev_wp;
   }
 
-  int wp2 = (prev_wp+1)%maps_x.size();
+  int wp2 = (prev_wp+1)%map.size();
 
-  double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),
-                         (maps_x[wp2]-maps_x[prev_wp]));
+  double heading = atan2((map[wp2].y - map[prev_wp].y),
+                         (map[wp2].x - map[prev_wp].x));
   // the x,y,s along the segment
-  double seg_s = (s-maps_s[prev_wp]);
+  double seg_s = (s -map[prev_wp].s);
 
-  double seg_x = maps_x[prev_wp]+seg_s*cos(heading);
-  double seg_y = maps_y[prev_wp]+seg_s*sin(heading);
+  double seg_x = map[prev_wp].x + seg_s*cos(heading);
+  double seg_y = map[prev_wp].y + seg_s*sin(heading);
 
   double perp_heading = heading-pi()/2;
 

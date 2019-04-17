@@ -3,19 +3,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
+
 #include "helpers.h"
+#include "path.h"
 #include "json.hpp"
 
-// for convenience
-void calculate_new_path(double car_x,
-                        double car_y,
-                        double car_yaw,
-                        vector<double> previous_path_x,
-                        vector<double> previous_path_y,
-                        vector<double> &next_x_vals,
-                        vector<double> &next_y_vals);
 using nlohmann::json;
 using std::string;
 using std::vector;
@@ -24,11 +19,7 @@ int main() {
   uWS::Hub h;
 
   // Load up map values for waypoint's x,y,s and d normalized normal vectors
-  vector<double> map_waypoints_x;
-  vector<double> map_waypoints_y;
-  vector<double> map_waypoints_s;
-  vector<double> map_waypoints_dx;
-  vector<double> map_waypoints_dy;
+  vector<map_waypoints_type> map_waypoints;
 
   // Waypoint map to read from
   string map_file_ = "../data/highway_map.csv";
@@ -40,27 +31,18 @@ int main() {
   string line;
   while (getline(in_map_, line)) {
     std::istringstream iss(line);
-    double x;
-    double y;
-    float s;
-    float d_x;
-    float d_y;
-    iss >> x;
-    iss >> y;
-    iss >> s;
-    iss >> d_x;
-    iss >> d_y;
-    map_waypoints_x.push_back(x);
-    map_waypoints_y.push_back(y);
-    map_waypoints_s.push_back(s);
-    map_waypoints_dx.push_back(d_x);
-    map_waypoints_dy.push_back(d_y);
+    map_waypoints_type map_waypoint;
+    iss >> map_waypoint.x;
+    iss >> map_waypoint.y;
+    iss >> map_waypoint.s;
+    iss >> map_waypoint.d_x;
+    iss >> map_waypoint.d_y;
+    map_waypoints.push_back(map_waypoint);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy]
-              (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-               uWS::OpCode opCode) {
+  h.onMessage([&map_waypoints]
+                  (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+                   uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -70,12 +52,12 @@ int main() {
 
       if (s != "") {
         auto j = json::parse(s);
-        
+
         string event = j[0].get<string>();
-        
+
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          
+
           // Main car's localization Data
           double car_x = j[1]["x"];
           double car_y = j[1]["y"];
@@ -104,12 +86,22 @@ int main() {
            * define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-          calculate_new_path(car_x, car_y, car_yaw, previous_path_x, previous_path_y, next_x_vals, next_y_vals);
+          calculate_new_path_with_s_and_d(car_x,
+                             car_y,
+                             car_yaw,
+                             car_s,
+                             car_d,
+                             car_speed,
+                             previous_path_x,
+                             previous_path_y,
+                             next_x_vals,
+                             next_y_vals,
+                             map_waypoints);
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
-          auto msg = "42[\"control\","+ msgJson.dump()+"]";
+          auto msg = "42[\"control\"," + msgJson.dump() + "]";
 
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if
@@ -138,45 +130,7 @@ int main() {
     std::cerr << "Failed to listen to port" << std::endl;
     return -1;
   }
-  
+
   h.run();
 }
 
-void calculate_new_path(double car_x,
-                        double car_y,
-                        double car_yaw,
-                        vector<double> previous_path_x,
-                        vector<double> previous_path_y,
-                        vector<double> &next_x_vals,
-                        vector<double> &next_y_vals) {
-  double pos_x;
-  double pos_y;
-  double angle;
-  int path_size = previous_path_x.size();
-
-  for (int i = 0; i < path_size; ++i) {
-    next_x_vals.push_back(previous_path_x[i]);
-    next_y_vals.push_back(previous_path_y[i]);
-  }
-
-  if (path_size == 0) {
-    pos_x = car_x;
-    pos_y = car_y;
-    angle = deg2rad(car_yaw);
-  } else {
-    pos_x = previous_path_x[path_size - 1];
-    pos_y = previous_path_y[path_size - 1];
-
-    double pos_x2 = previous_path_x[path_size - 2];
-    double pos_y2 = previous_path_y[path_size - 2];
-    angle = atan2(pos_y - pos_y2, pos_x - pos_x2);
-  }
-
-  double dist_inc = 0.5;
-  for (int i = 0; i < 50 - path_size; ++i) {
-    next_x_vals.push_back(pos_x + (dist_inc) * cos(angle + (i + 1) * (pi() / 100)));
-    next_y_vals.push_back(pos_y + (dist_inc) * sin(angle + (i + 1) * (pi() / 100)));
-    pos_x += (dist_inc) * cos(angle + (i + 1) * (pi() / 100));
-    pos_y += (dist_inc) * sin(angle + (i + 1) * (pi() / 100));
-  }
-}
