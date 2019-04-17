@@ -59,16 +59,18 @@ int main() {
           // j[1] is the data JSON object
 
           // Main car's localization Data
-          double car_x = j[1]["x"];
-          double car_y = j[1]["y"];
-          double car_s = j[1]["s"];
-          double car_d = j[1]["d"];
-          double car_yaw = j[1]["yaw"];
-          double car_speed = j[1]["speed"];
+          car_type main_car;
+          main_car.x = j[1]["x"];
+          main_car.y = j[1]["y"];
+          main_car.s = j[1]["s"];
+          main_car.d = j[1]["d"];
+          main_car.yaw = j[1]["yaw"];
+          main_car.speed = j[1]["speed"];
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];
+          vector<xy_type> previous_path = join_previous_path(previous_path_x, previous_path_y);
           // Previous path's end s and d values 
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
@@ -86,14 +88,8 @@ int main() {
            * define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-          calculate_new_path_with_s_and_d(car_x,
-                             car_y,
-                             car_yaw,
-                             car_s,
-                             car_d,
-                             car_speed,
-                             previous_path_x,
-                             previous_path_y,
+          calculate_new_path(main_car,
+                             previous_path,
                              next_x_vals,
                              next_y_vals,
                              map_waypoints);

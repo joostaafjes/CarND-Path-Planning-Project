@@ -10,64 +10,92 @@
 #include <iostream>
 #include "spline.h"
 
-void calculate_new_path(double car_x,
-                        double car_y,
-                        double car_yaw,
-                        double car_s,
-                        double car_d,
-                        double car_speed,
-                        vector<double> previous_path_x,
-                        vector<double> previous_path_y,
+tk::spline getSpline(const car_type &car,
+                     const vector<xy_type> &previous_path,
+                     const vector<map_waypoints_type> &map_waypoints) {
+  vector<double> path_x, path_y;
+  int lane = 1;
+
+  /*
+   * Take last 2 points
+   */
+  int size = previous_path.size();
+  if (size >= 2) {
+    // from previous path
+    path_x.push_back(previous_path[size - 2].x);
+    path_x.push_back(previous_path[size - 1].x);
+    path_y.push_back(previous_path[size - 2].y);
+    path_y.push_back(previous_path[size - 1].y);
+  } else {
+    // or from car coordinate
+    path_x.push_back(car.x - cos(deg2rad(car.yaw)));
+    path_y.push_back(car.y - sin(deg2rad(car.yaw)));
+    path_x.push_back(car.x);
+    path_y.push_back(car.y);
+  }
+
+  /*
+   * Add three more points
+   */
+  vector<double> xy1 = getXY(car.s + 30, 2 + lane * 4, map_waypoints);
+  vector<double> xy2 = getXY(car.s + 60, 2 + lane * 4, map_waypoints);
+  vector<double> xy3 = getXY(car.s + 90, 2 + lane * 4, map_waypoints);
+  path_x.push_back(xy1[0]);
+  path_x.push_back(xy2[0]);
+  path_x.push_back(xy3[0]);
+  path_y.push_back(xy1[1]);
+  path_y.push_back(xy2[1]);
+  path_y.push_back(xy3[1]);
+
+  /*
+   * Create spline
+   */
+  tk::spline spline;
+  spline.set_points(path_x, path_y);
+
+  return spline;
+}
+
+void calculate_new_path(car_type car,
+                        vector<xy_type> previous_path,
                         vector<double> &next_x_vals,
                         vector<double> &next_y_vals,
                         vector<map_waypoints_type> &map_waypoints) {
 
-  /*
-   * search position at map
-   */
-  int index = NextWaypoint(car_x, car_y, car_yaw, map_waypoints);
+  tk::spline s = getSpline(car, previous_path, map_waypoints);
 
-  std::cout << "Current speed: " << car_speed << " m/s" << std::endl;
-
-  int lane = 6; // second lane
-  vector<double> x(0);
-  vector<double> y(0);
-  for (int i = 0; i < 50; ++i) {
-    double x_lane = map_waypoints[index + i].x + lane * map_waypoints[index + i].d_x;
-    double y_lane = map_waypoints[index + i].y + lane * map_waypoints[index + i].d_y;
-//    std::cout << "x_lane:" << x_lane << std::endl;
-//    std::cout << "y_lane:" << y_lane << std::endl;
-    x.push_back(x_lane);
-    y.push_back(y_lane);
-  }
-
-  tk::spline s;
-  s.set_points(x, y);
-
-  // calculate max increase in 0.02 seconds
-  double max_increase =  std::max(0.0, car_speed + MAX_ACC_M_PER_S * INTERVAL_IN_SECONDS);
+  // Calculate max increase in 0.02 seconds
+  double max_increase =  std::max(0.0, car.speed * INTERVAL_IN_SECONDS + MAX_ACC_M_PER_S * INTERVAL_IN_SECONDS);
   std::cout << "Max increase: " << max_increase << std::endl;
   double final_increase = std::min(MAX_SPEED_METER_PER_INTERVAL, max_increase);
   std::cout << "Final increase: " << final_increase << std::endl;
 
   /*
-   * use xy
+   * Take from previous path
    */
-  for (int i = 0; i < 50; ++i) {
-    double x = map_waypoints[index].x + i * final_increase * cos(deg2rad(car_yaw));
+  int size = previous_path.size();
+  for (int i = 0; i < size; ++i) {
+    next_x_vals.push_back(previous_path[i].x);
+    next_y_vals.push_back(previous_path[i].y);
+  }
+
+  /*
+   * Calculate new ones
+   */
+  double last_x_pos = car.x;
+  if (size > 0) {
+    last_x_pos = previous_path[size - 1].x;
+  }
+  for (int i = 0; i < (50 - size); ++i) {
+    double x = last_x_pos + i * final_increase * cos(deg2rad(car.yaw));
     double y = s(x);
     next_x_vals.push_back(x);
     next_y_vals.push_back(y);
-    std::cout << "x: " << x << ", y: " << y << std::endl;
+//    std::cout << "x: " << x << ", y: " << y << std::endl;
   }
 }
 
-void calculate_new_path_with_s_and_d(double car_x,
-                                     double car_y,
-                                     double car_yaw,
-                                     double car_s,
-                                     double car_d,
-                                     double car_speed,
+void calculate_new_path_with_s_and_d(car_type car,
                                      vector<double> previous_path_x,
                                      vector<double> previous_path_y,
                                      vector<double> &next_x_vals,
@@ -75,7 +103,7 @@ void calculate_new_path_with_s_and_d(double car_x,
                                      vector<map_waypoints_type> &map_waypoints) {
 
   // calculate max increase in 0.02 seconds
-  double max_increase =  std::max(0.0, car_speed * INTERVAL_IN_SECONDS + MAX_ACC_M_PER_S * INTERVAL_IN_SECONDS);
+  double max_increase =  std::max(0.0, car.speed * INTERVAL_IN_SECONDS + MAX_ACC_M_PER_S * INTERVAL_IN_SECONDS);
   std::cout << "Max increase: " << max_increase << std::endl;
   double final_increase = std::min(MAX_SPEED_METER_PER_INTERVAL, max_increase);
   std::cout << "Final increase: " << final_increase << std::endl;
@@ -84,7 +112,8 @@ void calculate_new_path_with_s_and_d(double car_x,
    * use d and s and convert to xy
    */
   for (int i = 0; i < 50; ++i) {
-    vector<double> new_xy = getXY(car_s + i * final_increase, car_d, map_waypoints);
+    std::cout << "Car d: " << car.d << std::endl;
+    vector<double> new_xy = getXY(car.s + (i + 1) * final_increase, 6, map_waypoints);
     next_x_vals.push_back(new_xy[0]);
     next_y_vals.push_back(new_xy[1]);
   }

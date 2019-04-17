@@ -21,6 +21,20 @@ struct map_waypoints_type {
   }
 };
 
+struct xy_type {
+  double x;
+  double y;
+};
+
+struct car_type {
+  double x;
+  double y;
+  double s;
+  double d;
+  double yaw;
+  double speed;
+};
+
 const double INTERVAL_IN_SECONDS = 0.02; // seconds
 const double MAX_SPEED_METER_PER_INTERVAL = 0.400; // meter per 0.02 second
 const double MAX_ACC_M_PER_S = 10.0; // km/s^2
@@ -161,6 +175,19 @@ vector<double> getXY(double s, double d, const vector<map_waypoints_type> &map) 
   double y = seg_y + d*sin(perp_heading);
 
   return {x,y};
+}
+
+vector<xy_type> join_previous_path(const vector<double> &x, const vector<double> &y) {
+  vector<xy_type> joined_path;
+
+  for (int i; i < x.size(); i++) {
+    xy_type xy;
+    xy.x = x[i];
+    xy.y = y[i];
+    joined_path.push_back(xy);
+  }
+
+  return joined_path;
 }
 
 #endif  // HELPERS_H
