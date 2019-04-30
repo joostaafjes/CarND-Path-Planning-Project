@@ -7,7 +7,7 @@ add_definitions(-std=c++11)
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
-set(sources src/main.cpp src/spline.h src/path.h)
+set(sources src/main.cpp src/spline.h src/path.h src/gnuplot.h)
 
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
@@ -20,7 +20,12 @@ link_directories(/usr/local/Cellar/libuv/1.11.0/lib)
 
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
-
 add_executable(path_planning ${sources})
+
+find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Charts)
+find_package(Qt5Core)
+
+target_link_libraries(path_planning Qt5::Widgets Qt5::Charts Qt5::Core)
 
 target_link_libraries(path_planning z ssl uv uWS)

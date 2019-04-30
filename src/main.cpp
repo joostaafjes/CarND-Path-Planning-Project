@@ -11,11 +11,14 @@
 #include "path.h"
 #include "json.hpp"
 
+#include <QApplication>
+#include <QDebug>
+
 using nlohmann::json;
 using std::string;
 using std::vector;
 
-int main() {
+int main(int argc, char* argv[]) {
   uWS::Hub h;
 
   // Load up map values for waypoint's x,y,s and d normalized normal vectors
@@ -40,7 +43,12 @@ int main() {
     map_waypoints.push_back(map_waypoint);
   }
 
-  h.onMessage([&map_waypoints]
+  GnuplotPipe gp, gp_detail;
+  gp.sendLine("set title 'map'; set xlabel 'x'; set ylabel 'y'");
+  gp_detail.sendLine("set title 'detail'; set xlabel 'x'; set ylabel 'y'");
+//  gp.sendLine("set xrange [0:2000]; set yrange [0:2000]");
+
+  h.onMessage([&map_waypoints, &gp, &gp_detail]
                   (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                    uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -57,6 +65,7 @@ int main() {
 
         if (event == "telemetry") {
           // j[1] is the data JSON object
+          std::cout << "New telemetry event received..." << std::endl;
 
           // Main car's localization Data
           car_type main_car;
@@ -77,7 +86,8 @@ int main() {
 
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
-          auto sensor_fusion = j[1]["sensor_fusion"];
+          vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
+          vector<sensor_type> vector_data = convert_sensor_data(sensor_fusion);
 
           json msgJson;
 
@@ -92,7 +102,9 @@ int main() {
                              previous_path,
                              next_x_vals,
                              next_y_vals,
-                             map_waypoints);
+                             map_waypoints,
+                             vector_data,
+                             gp, gp_detail);
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

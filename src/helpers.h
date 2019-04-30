@@ -35,9 +35,13 @@ struct car_type {
   double speed;
 };
 
+struct sensor_type {
+  double id, x, y, vx, vy, s, d;
+};
+
 const double INTERVAL_IN_SECONDS = 0.02; // seconds
-const double MAX_SPEED_METER_PER_INTERVAL = 0.400; // meter per 0.02 second
-const double MAX_ACC_M_PER_S = 10.0; // km/s^2
+const double MAX_SPEED_M_PER_INTERVAL = 0.400; // m per 0.02 second
+const double MAX_ACC_KM_PER_INTERVAL = 0.0002; // = 10m/s^2 converted to km/interval
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -180,7 +184,8 @@ vector<double> getXY(double s, double d, const vector<map_waypoints_type> &map) 
 vector<xy_type> join_previous_path(const vector<double> &x, const vector<double> &y) {
   vector<xy_type> joined_path;
 
-  for (int i; i < x.size(); i++) {
+  int size = x.size();
+  for (int i = 0; i < size; i++) {
     xy_type xy;
     xy.x = x[i];
     xy.y = y[i];
@@ -188,6 +193,29 @@ vector<xy_type> join_previous_path(const vector<double> &x, const vector<double>
   }
 
   return joined_path;
+}
+
+vector<sensor_type> convert_sensor_data(vector<vector<double>> input_sensor_data) {
+  vector<sensor_type> output_sensor_data;
+
+  sensor_type sensor_data;
+
+  for (int index = 0; index < input_sensor_data.size(); index++) {
+    if (input_sensor_data[index].size() != 7) {
+      std::cout << "Error input data" << std::endl;
+    }
+    sensor_data.id = input_sensor_data[index][0];
+    sensor_data.x = input_sensor_data[index][1];
+    sensor_data.y = input_sensor_data[index][2];
+    sensor_data.vx = input_sensor_data[index][3];
+    sensor_data.vy = input_sensor_data[index][4];
+    sensor_data.s = input_sensor_data[index][5];
+    sensor_data.d = input_sensor_data[index][6];
+
+    output_sensor_data.push_back(sensor_data);
+  }
+
+  return output_sensor_data;
 }
 
 #endif  // HELPERS_H
