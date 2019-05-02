@@ -11,11 +11,64 @@
 #include "spline.h"
 #include "gnuplot.h"
 
+car_type determine_reference(const car_type &car, const vector<xy_type> &previous_path) {
+  car_type reference;
+
+  int size = previous_path.size();
+  double ref_prev_x, ref_prev_y;
+  if (size > 1) {
+    // from previous path
+    ref_prev_x = previous_path[size - 2].x;
+    ref_prev_y = previous_path[size - 2].y;
+    reference.x = previous_path[size - 1].x;
+    reference.y = previous_path[size - 1].y;
+    reference.yaw = atan2((reference.y - ref_prev_y), (reference.x - ref_prev_x));
+  } else {
+    ref_prev_x = car.x - cos(deg2rad(car.yaw));
+    ref_prev_y = car.y - sin(deg2rad(car.yaw));
+    reference.x = car.x;
+    reference.y = car.y;
+    reference.yaw = deg2rad(car.yaw);
+  }
+
+  std::cout << "reference.x:" << reference.x << std::endl;
+  std::cout << "reference.y:" << reference.y << std::endl;
+  std::cout << "reference.yaw:" << reference.yaw << std::endl;
+
+  return reference;
+}
+
+xy_type convert_to_car_coordinates(const car_type &reference, xy_type &xy) {
+  xy_type car_xy;
+
+  double shift_x = xy.x - reference.x;
+  double shift_y = xy.y - reference.y;
+
+  car_xy.x = shift_x * cos(0 - reference.yaw) - shift_y * sin(0 - reference.yaw);
+  car_xy.y = shift_x * sin(0 - reference.yaw) + shift_y * cos(0 - reference.yaw);
+
+  return car_xy;
+}
+
+xy_type convert_to_global_coordinates(car_type &reference, xy_type &xy) {
+  xy_type global_xy;
+
+  global_xy.x = (xy.x * cos(reference.yaw)) - xy.y * sin(reference.yaw);
+  global_xy.y = (xy.x * sin(reference.yaw)) + xy.y * cos(reference.yaw);
+
+  global_xy.x += reference.x;
+  global_xy.y += reference.y;
+
+  return global_xy;
+
+}
+
 tk::spline getSpline(const car_type &car,
+                     const car_type &reference,
                      const vector<xy_type> &previous_path,
                      const vector<map_waypoints_type> &map_waypoints,
                      GnuplotPipe &gp, GnuplotPipe &gp_detail) {
-  vector<double> path_x, path_y;
+  vector<double> path_x, path_y, path_x_car, path_y_car;
   int lane = 1;
 
   /*
@@ -33,7 +86,6 @@ tk::spline getSpline(const car_type &car,
     path_y.push_back(car.y - sin(deg2rad(car.yaw)));
     path_x.push_back(car.x);
     path_y.push_back(car.y);
-
   }
 
   /*
@@ -59,10 +111,23 @@ tk::spline getSpline(const car_type &car,
   gp_detail.sendEndOfData();
 
   /*
+   * Convert to car coordinates
+   */
+  for (int index = 0; index < path_x.size(); index++) {
+    xy_type xy_input;
+    xy_input.x = path_x[index];
+    xy_input.y = path_y[index];
+    xy_type xy = convert_to_car_coordinates(reference, xy_input);
+    path_x_car.push_back(xy.x);
+    path_y_car.push_back(xy.y);
+    std::cout << "Spline input: x:" << xy_input.x << ",y:" << xy_input.y << ", output: x:" << xy.x << ",y:" << xy.y << std::endl;
+  }
+
+  /*
    * Create spline
    */
   tk::spline spline;
-  spline.set_points(path_x, path_y);
+  spline.set_points(path_x_car, path_y_car);
 
   return spline;
 }
@@ -202,7 +267,23 @@ void calculate_new_path(car_type car,
   gp_detail.sendLine(string);
   gp_detail.sendEndOfData();
 
-  tk::spline s = getSpline(car, previous_path, map_waypoints, gp, gp_detail);
+  car_type reference = determine_reference(car, previous_path);
+
+  // test
+  xy_type global, local, global_after;
+
+//  local x,y:0.4,481.994
+//    global.x = 1469.77;
+//    global.y = 1270.37;
+//  global.x = 1200;
+//  global.y = 1200;
+//  reference.yaw = -0.784357;
+//  reference.x = 1129.016;
+//  reference.y = 929.4717;
+//  local = convert_to_car_coordinates(reference, global);
+//  global_after = convert_to_global_coordinates(reference, local);
+
+  tk::spline s = getSpline(car, reference, previous_path, map_waypoints, gp, gp_detail);
 
 //  std::cout << "Current speed (m/s): " << car.speed << std::endl;
 
@@ -214,6 +295,17 @@ void calculate_new_path(car_type car,
     next_x_vals.push_back(previous_path[i].x);
     next_y_vals.push_back(previous_path[i].y);
   }
+
+  /*
+   * Udactity way
+   */
+
+  // Calculate how to break up spline points so that we travel at our desired reference volicity
+  double target_x = 30.0;
+  double target_y = s(target_x);
+  double target_dist = sqrt((target_x * target_x) + (target_y * target_y));
+
+  double x_add_on = 0.0;
 
   /*
    * Calculate new ones
@@ -235,8 +327,36 @@ void calculate_new_path(car_type car,
 //    if (size > 1) {
 //      cosinus = atan((previous_path[size - 1].y - previous_path[size - 2].y)/(previous_path[size - 1].x - previous_path[size - 2].x)) * 180 / M_PI;
 //    }
-    double x = last_x_pos + (i + 1) * interval * cosinus;
-    double y = s(x);
+
+    /*
+     * Udactity way
+     */
+
+
+    // Fill up the rest of our path planner after filling it with previous points, here we we always output
+    double N = target_dist / current_speed_in_km_per_interval;
+    xy_type xy_local;
+    std::cout << "x_add_on:" << x_add_on << std::endl;
+    std::cout << "target_dist:" << target_dist << std::endl;
+    std::cout << "N:" << N << std::endl;
+    xy_local.x = x_add_on + target_x / N;
+    xy_local.y = s(xy_local.x);
+    std::cout << "local x,y:" << xy_local.x << "," << xy_local.y << std::endl;
+
+    x_add_on = xy_local.x;
+
+    // rotate back to normal after rotating it earlier
+    xy_type global_xy = convert_to_global_coordinates(reference, xy_local);
+    double x = global_xy.x;
+    double y = global_xy.y;
+    std::cout << "global x,y:" << x << "," << y << std::endl;
+
+    /*
+     * Udacity way end
+     */
+
+//    double x = last_x_pos + (i + 1) * interval * cosinus;
+//    double y = s(x);
     std::cout << "last_x_post:" << last_x_pos << std::endl;
     std::cout << "i:" << i << std::endl;
     std::cout << "interval:" << interval << std::endl;

@@ -11,9 +11,6 @@
 #include "path.h"
 #include "json.hpp"
 
-#include <QApplication>
-#include <QDebug>
-
 using nlohmann::json;
 using std::string;
 using std::vector;
