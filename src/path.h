@@ -31,9 +31,9 @@ car_type determine_reference(const car_type &car, const vector<xy_type> &previou
     reference.yaw = deg2rad(car.yaw);
   }
 
-  std::cout << "reference.x:" << reference.x << std::endl;
-  std::cout << "reference.y:" << reference.y << std::endl;
-  std::cout << "reference.yaw:" << reference.yaw << std::endl;
+//  std::cout << "reference.x:" << reference.x << std::endl;
+//  std::cout << "reference.y:" << reference.y << std::endl;
+//  std::cout << "reference.yaw:" << reference.yaw << std::endl;
 
   return reference;
 }
@@ -120,7 +120,7 @@ tk::spline getSpline(const car_type &car,
     xy_type xy = convert_to_car_coordinates(reference, xy_input);
     path_x_car.push_back(xy.x);
     path_y_car.push_back(xy.y);
-    std::cout << "Spline input: x:" << xy_input.x << ",y:" << xy_input.y << ", output: x:" << xy.x << ",y:" << xy.y << std::endl;
+//    std::cout << "Spline input: x:" << xy_input.x << ",y:" << xy_input.y << ", output: x:" << xy.x << ",y:" << xy.y << std::endl;
   }
 
   /*
@@ -132,20 +132,22 @@ tk::spline getSpline(const car_type &car,
   return spline;
 }
 
-double get_interval(double &current_speed_in_m_per_interval, const double max_speed_m_per_interval) {
-  std::cout << "Current speed (m/0.02s): " << current_speed_in_m_per_interval << " : ";
+double get_interval(double &current_speed_in_m_per_interval, const double target_speed_m_per_interval) {
+//  std::cout << "Current speed (m/0.02s): " << current_speed_in_m_per_interval << " : ";
 
-  if (current_speed_in_m_per_interval < max_speed_m_per_interval) {
+  if (current_speed_in_m_per_interval < target_speed_m_per_interval) {
     current_speed_in_m_per_interval =
-        std::min(current_speed_in_m_per_interval + MAX_ACC_KM_PER_INTERVAL, max_speed_m_per_interval);
-  } else if (current_speed_in_m_per_interval > max_speed_m_per_interval) {
-    current_speed_in_m_per_interval = std::max(0.0, current_speed_in_m_per_interval - MAX_ACC_KM_PER_INTERVAL);
+        std::min(current_speed_in_m_per_interval + MAX_ACC_M_PER_INTERVAL, target_speed_m_per_interval);
+    std::cout << "Accelerate to " << current_speed_in_m_per_interval << " m/interval (target speed:" << target_speed_m_per_interval << ")" << std::endl;
+  } else if (current_speed_in_m_per_interval > target_speed_m_per_interval) {
+    current_speed_in_m_per_interval = std::max(0.0, current_speed_in_m_per_interval - MAX_ACC_M_PER_INTERVAL);
+    std::cout << "Slow down to " << current_speed_in_m_per_interval << " m/interval (target speed:" << target_speed_m_per_interval << ")" << std::endl;
   }
   if (current_speed_in_m_per_interval > MAX_SPEED_M_PER_INTERVAL) {
     current_speed_in_m_per_interval = MAX_SPEED_M_PER_INTERVAL;
   }
 
-  std::cout << "New speed (m/0.02s): " << current_speed_in_m_per_interval << std::endl;
+//  std::cout << "New speed (m/0.02s): " << current_speed_in_m_per_interval << std::endl;
 
   return current_speed_in_m_per_interval;
 }
@@ -156,26 +158,26 @@ double convert_from_mile_per_hour_to_m_per_interval(const double &speed_mile_per
 
 double get_current_speed(double car_speed, const vector<xy_type> &previous_path) {
   int size = previous_path.size();
-  double current_speed_in_km_per_interval;
+  double current_speed_in_m_per_interval;
 
-  std::cout << "current car_speed(MPH?):" << car_speed << std::endl;
-  std::cout << "current car_speed:" << convert_from_mile_per_hour_to_m_per_interval(car_speed) << std::endl;
+  std::cout << "current car_speed(MPH):" << car_speed << std::endl;
+  std::cout << "current car_speed(mpi):" << convert_from_mile_per_hour_to_m_per_interval(car_speed) << std::endl;
   if (size < 2) {
-    current_speed_in_km_per_interval = convert_from_mile_per_hour_to_m_per_interval(car_speed);
-    std::cout << "current speed from car_speed: " << current_speed_in_km_per_interval << std::endl;
+    current_speed_in_m_per_interval = convert_from_mile_per_hour_to_m_per_interval(car_speed);
   } else {
     std::cout << "current speed from previous path with size: " << size << std::endl;
     double diff_x = previous_path[size - 1].x - previous_path[size - 2].x;
     double diff_y = previous_path[size - 1].y - previous_path[size - 2].y;
-    current_speed_in_km_per_interval = sqrt(diff_x * diff_x + diff_y * diff_y);
+    current_speed_in_m_per_interval = sqrt(diff_x * diff_x + diff_y * diff_y);
+    std::cout << "current speed from previous path: " << current_speed_in_m_per_interval << std::endl;
   }
 
-  return current_speed_in_km_per_interval;
+  return current_speed_in_m_per_interval;
 }
 
-double get_max_speed(car_type car, const vector<sensor_type> &sensor_data_vector) {
+double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vector) {
 
-  double max_speed = MAX_SPEED_M_PER_INTERVAL;
+  double target_speed = MAX_SPEED_M_PER_INTERVAL;
 
   for (auto const &sensor_data: sensor_data_vector) {
     if (sensor_data.s > car.s && sensor_data.s < car.s + 30.0 &&
@@ -183,15 +185,16 @@ double get_max_speed(car_type car, const vector<sensor_type> &sensor_data_vector
       /*
        * Calculate speed of vehicle
        */
-      double v_m_per_s = sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy);
-      max_speed = convert_from_mile_per_hour_to_m_per_interval(v_m_per_s);
+      double v_m_per_s = convert_from_mile_per_hour_to_m_per_interval(sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy));
+      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) " + std::to_string(v_m_per_s));
 
-      std::cout << "Vechile(" << sensor_data.id << ") detected with speed(MPH) " << v_m_per_s << std::endl;
-      std::cout << "Vechile(" << sensor_data.id << ") detected with speed " << max_speed << std::endl;
+      if (v_m_per_s < target_speed) {
+        target_speed = v_m_per_s;
+      }
     }
   }
 
-  return max_speed;
+  return target_speed;
 }
 
 void plot_waypoints(GnuplotPipe &gp, vector<map_waypoints_type> &map_waypoints) {
@@ -320,9 +323,9 @@ void calculate_new_path(car_type car,
   double prev_x = last_x_pos;
   double prev_y = last_y_pos;
   double current_speed_in_km_per_interval = get_current_speed(car.speed, previous_path);
+  double target_speed = get_target_speed(car, sensor_data);
   for (int i = 0; i < (50 - size); ++i) {
-    double max_speed = get_max_speed(car, sensor_data);
-    double interval = get_interval(current_speed_in_km_per_interval, max_speed);
+    double interval = get_interval(current_speed_in_km_per_interval, target_speed);
     double cosinus = cos(deg2rad(car.yaw));
 //    if (size > 1) {
 //      cosinus = atan((previous_path[size - 1].y - previous_path[size - 2].y)/(previous_path[size - 1].x - previous_path[size - 2].x)) * 180 / M_PI;
@@ -336,12 +339,12 @@ void calculate_new_path(car_type car,
     // Fill up the rest of our path planner after filling it with previous points, here we we always output
     double N = target_dist / current_speed_in_km_per_interval;
     xy_type xy_local;
-    std::cout << "x_add_on:" << x_add_on << std::endl;
-    std::cout << "target_dist:" << target_dist << std::endl;
-    std::cout << "N:" << N << std::endl;
+//    std::cout << "x_add_on:" << x_add_on << std::endl;
+//    std::cout << "target_dist:" << target_dist << std::endl;
+//    std::cout << "N:" << N << std::endl;
     xy_local.x = x_add_on + target_x / N;
     xy_local.y = s(xy_local.x);
-    std::cout << "local x,y:" << xy_local.x << "," << xy_local.y << std::endl;
+//    std::cout << "local x,y:" << xy_local.x << "," << xy_local.y << std::endl;
 
     x_add_on = xy_local.x;
 
@@ -349,7 +352,7 @@ void calculate_new_path(car_type car,
     xy_type global_xy = convert_to_global_coordinates(reference, xy_local);
     double x = global_xy.x;
     double y = global_xy.y;
-    std::cout << "global x,y:" << x << "," << y << std::endl;
+//    std::cout << "global x,y:" << x << "," << y << std::endl;
 
     /*
      * Udacity way end
@@ -357,13 +360,13 @@ void calculate_new_path(car_type car,
 
 //    double x = last_x_pos + (i + 1) * interval * cosinus;
 //    double y = s(x);
-    std::cout << "last_x_post:" << last_x_pos << std::endl;
-    std::cout << "i:" << i << std::endl;
-    std::cout << "interval:" << interval << std::endl;
-    std::cout << "cosinus:" << cosinus << std::endl;
+//    std::cout << "last_x_post:" << last_x_pos << std::endl;
+//    std::cout << "i:" << i << std::endl;
+//    std::cout << "interval:" << interval << std::endl;
+//    std::cout << "cosinus:" << cosinus << std::endl;
     double v = sqrt((x - prev_x) * (x - prev_x) + (y - prev_y) * (y - prev_y));
     double factor = interval / v;
-    std::cout << "factor:" << factor << std::endl;
+//    std::cout << "factor:" << factor << std::endl;
 //    x = last_x_pos + (i + 1) * interval * cosinus * factor;
 //    y = s(x);
     next_x_vals.push_back(x);
@@ -371,7 +374,7 @@ void calculate_new_path(car_type car,
     double angle = atan((y - prev_y)/(x - prev_x)) * 180 / M_PI;
     prev_x = x;
     prev_y = y;
-    std::cout << "x: " << x << ", y: " << y << ", car.yaw:" << car.yaw << ", x/y angle:" << angle << ", v=" << v << std::endl;
+//    std::cout << "x: " << x << ", y: " << y << ", car.yaw:" << car.yaw << ", x/y angle:" << angle << ", v=" << v << std::endl;
   }
 
   prev_x = 0, prev_y = 0;
@@ -381,11 +384,11 @@ void calculate_new_path(car_type car,
     double y = next_y_vals[index];
     double v_m_per_interval = sqrt((x - prev_x) * (x - prev_x) + (y - prev_y) * (y - prev_y));
     double a_m_per_interval2 = v_m_per_interval - prev_v;
-    std::cout << "index:" << index << ", x:" << x << "m., y:" << y << "m., x/y angle:" << atan((y - prev_y)/(x - prev_x)) * 180 / M_PI << ", v:" << v_m_per_interval << " m/interval";
-    if (a_m_per_interval2 >= 0.004) {
-      std::cout << ", a= " << a_m_per_interval2 << " m/interval^2";
-    }
-    std::cout << std::endl;
+//    std::cout << "index:" << index << ", x:" << x << "m., y:" << y << "m., x/y angle:" << atan((y - prev_y)/(x - prev_x)) * 180 / M_PI << ", v:" << v_m_per_interval << " m/interval";
+//    if (a_m_per_interval2 >= 0.004) {
+//      std::cout << ", a= " << a_m_per_interval2 << " m/interval^2";
+//    }
+//    std::cout << std::endl;
     prev_x = x;
     prev_y = y;
     prev_v = v_m_per_interval;

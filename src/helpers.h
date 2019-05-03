@@ -40,8 +40,8 @@ struct sensor_type {
 };
 
 const double INTERVAL_IN_SECONDS = 0.02; // seconds
-const double MAX_SPEED_M_PER_INTERVAL = 0.400; // m per 0.02 second
-const double MAX_ACC_KM_PER_INTERVAL = 0.0002; // = 10m/s^2 converted to km/interval
+const double MAX_SPEED_M_PER_INTERVAL = 0.444; // m per 0.02 second
+const double MAX_ACC_M_PER_INTERVAL = 0.003; // = 10m/s^2 converted to m/interval is 0.004 but that causes error in simulator
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -216,6 +216,23 @@ vector<sensor_type> convert_sensor_data(vector<vector<double>> input_sensor_data
   }
 
   return output_sensor_data;
+}
+
+#define DEBUG 1
+#define INFO 2
+
+#define LOG_LEVEL INFO
+
+void log_info(std::string msg) {
+  if (LOG_LEVEL <= INFO) {
+    std::cout << msg << std::endl;
+  }
+}
+
+void log_debug(std::string msg) {
+  if (LOG_LEVEL <= DEBUG) {
+    std::cout << msg << std::endl;
+  }
 }
 
 #endif  // HELPERS_H
