@@ -9,7 +9,7 @@
 
 #include <iostream>
 #include "spline.h"
-#include "gnuplot.h"
+#include "plot.h"
 
 car_type determine_reference(const car_type &car, const vector<xy_type> &previous_path) {
   car_type reference;
@@ -67,7 +67,7 @@ tk::spline getSpline(const car_type &car,
                      const car_type &reference,
                      const vector<xy_type> &previous_path,
                      const vector<map_waypoints_type> &map_waypoints,
-                     GnuplotPipe &gp, GnuplotPipe &gp_detail) {
+                     Plot *main_plot, Plot *detail_plot) {
   vector<double> path_x, path_y, path_x_car, path_y_car;
   int lane = 1;
 
@@ -101,14 +101,8 @@ tk::spline getSpline(const car_type &car,
   path_y.push_back(xy2[1]);
   path_y.push_back(xy3[1]);
 
-  for (int index = 0; index < path_x.size(); index++) {
-    char string[80];
-    sprintf(string, "%f %f", path_x[index], path_y[index]);
-    gp.sendLine(string);
-    gp_detail.sendLine(string);
-  }
-  gp.sendEndOfData();
-  gp_detail.sendEndOfData();
+  main_plot->plot_path(path_x, path_y);
+  detail_plot->plot_path(path_x, path_y);
 
   /*
    * Convert to car coordinates
@@ -181,15 +175,16 @@ double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vec
 
   for (auto const &sensor_data: sensor_data_vector) {
     if (sensor_data.s > car.s && sensor_data.s < car.s + 30.0 &&
-        fabs(sensor_data.d - car.d) < 0.5) {
+        fabs(sensor_data.d - car.d) < 1.5) {
       /*
        * Calculate speed of vehicle
        */
-      double v_m_per_s = convert_from_mile_per_hour_to_m_per_interval(sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy));
-      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) " + std::to_string(v_m_per_s));
+      double v_m_per_interval = sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy) * INTERVAL_IN_SECONDS;
+      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) " + std::to_string(v_m_per_interval));
+      log_info("d:" + std::to_string(sensor_data.d));
 
-      if (v_m_per_s < target_speed) {
-        target_speed = v_m_per_s;
+      if (v_m_per_interval < target_speed) {
+        target_speed = v_m_per_interval;
       }
     }
   }
@@ -197,14 +192,6 @@ double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vec
   return target_speed;
 }
 
-void plot_waypoints(GnuplotPipe &gp, vector<map_waypoints_type> &map_waypoints) {
-  for (int index = 0; index < map_waypoints.size(); index++) {
-    char string[80];
-    sprintf(string, "%f %f", map_waypoints[index].x, map_waypoints[index].y);
-    gp.sendLine(string);
-  }
-  gp.sendEndOfData();
-}
 
 void calculate_new_path(car_type car,
                         vector<xy_type> previous_path,
@@ -212,63 +199,17 @@ void calculate_new_path(car_type car,
                         vector<double> &next_y_vals,
                         vector<map_waypoints_type> &map_waypoints,
                         vector<sensor_type> sensor_data,
-                        GnuplotPipe &gp, GnuplotPipe &gp_detail) {
+                        Plot *main_plot, Plot *detail_plot) {
 
-  gp.sendLine("# Set linestyle 1 to blue (#0060ad)\n"
-              "set grid; \\\n"
-              "set style line 1 \\\n"
-              "    linecolor rgb '#0060ad' \\\n"
-              "    linetype 1 linewidth 2 \\\n"
-              "    pointtype 5 pointsize 1.5;"
-              "set style line 2 \\\n"
-              "    linecolor rgb '#0b6623' \\\n"
-              "    linetype 1 linewidth 2 \\\n"
-              "    pointtype 6 pointsize 1.5;"
-              "set style line 3 \\\n"
-              "    linecolor rgb '#dd181f' \\\n"
-              "    linetype 1 linewidth 2 \\\n"
-              "    pointtype 7 pointsize 1.5;");
-  gp_detail.sendLine("# Set linestyle 1 to blue (#0060ad)\n"
-                     "set grid; \\\n"
-                     "set style line 1 \\\n"
-                     "    linecolor rgb '#0060ad' \\\n"
-                     "    linetype 1 linewidth 2 \\\n"
-                     "    pointtype 5 pointsize 1.5;"
-                     "set style line 2 \\\n"
-                     "    linecolor rgb '#0b6623' \\\n"
-                     "    linetype 1 linewidth 2 \\\n"
-                     "    pointtype 6 pointsize 1.5;"
-                     "set style line 3 \\\n"
-                     "    linecolor rgb '#dd181f' \\\n"
-                     "    linetype 1 linewidth 2 \\\n"
-                     "    pointtype 7 pointsize 1.5;");
-  char detail[100];
-  int range = 100;
-  sprintf(detail,
-          "set yrange [%d:%d]; set xrange [%d:%d];",
-          int(car.y - range),
-          int(car.y + range),
-          int(car.x - range),
-          int(car.x + range));
-  gp_detail.sendLine(detail);
-//  gp.sendLine("set multiplot layout 3, 1 title \"Multiplot layout 3, 1\" font \",14\"");
+  detail_plot->scale(car.x, car.y);
 
-  gp.sendLine("plot '-', '-' with linespoints linestyle 1,'-' with linespoints linestyle 2, '-' with linespoints linestyle 3");
-  gp_detail.sendLine("plot '-', '-' with linespoints linestyle 1,'-' with linespoints linestyle 2, '-' with linespoints linestyle 3");
-  plot_waypoints(gp, map_waypoints);
-  plot_waypoints(gp_detail, map_waypoints);
+  main_plot->prepare_plot_with_3_lines();
+  main_plot->plot_waypoints(map_waypoints);
+  main_plot->plot_car_position(car);
 
-  /*
-   * Plot car position
-   */
-  char string[80];
-  sprintf(string, "%f %f\n%f %f",
-          car.x - 10 * cos(deg2rad(car.yaw)), car.y - 10 * sin(deg2rad(car.yaw)),
-          car.x, car.y);
-  gp.sendLine(string);
-  gp.sendEndOfData();
-  gp_detail.sendLine(string);
-  gp_detail.sendEndOfData();
+  detail_plot->prepare_plot_with_3_lines();
+  detail_plot->plot_waypoints(map_waypoints);
+  detail_plot->plot_car_position(car);
 
   car_type reference = determine_reference(car, previous_path);
 
@@ -286,7 +227,7 @@ void calculate_new_path(car_type car,
 //  local = convert_to_car_coordinates(reference, global);
 //  global_after = convert_to_global_coordinates(reference, local);
 
-  tk::spline s = getSpline(car, reference, previous_path, map_waypoints, gp, gp_detail);
+  tk::spline s = getSpline(car, reference, previous_path, map_waypoints, main_plot, detail_plot);
 
 //  std::cout << "Current speed (m/s): " << car.speed << std::endl;
 
@@ -377,29 +318,8 @@ void calculate_new_path(car_type car,
 //    std::cout << "x: " << x << ", y: " << y << ", car.yaw:" << car.yaw << ", x/y angle:" << angle << ", v=" << v << std::endl;
   }
 
-  prev_x = 0, prev_y = 0;
-  double prev_v = 0;
-  for (int index = 0; index < next_x_vals.size(); index++) {
-    double x = next_x_vals[index];
-    double y = next_y_vals[index];
-    double v_m_per_interval = sqrt((x - prev_x) * (x - prev_x) + (y - prev_y) * (y - prev_y));
-    double a_m_per_interval2 = v_m_per_interval - prev_v;
-//    std::cout << "index:" << index << ", x:" << x << "m., y:" << y << "m., x/y angle:" << atan((y - prev_y)/(x - prev_x)) * 180 / M_PI << ", v:" << v_m_per_interval << " m/interval";
-//    if (a_m_per_interval2 >= 0.004) {
-//      std::cout << ", a= " << a_m_per_interval2 << " m/interval^2";
-//    }
-//    std::cout << std::endl;
-    prev_x = x;
-    prev_y = y;
-    prev_v = v_m_per_interval;
-    char string[80];
-    sprintf(string, "%f %f", x, y);
-    gp.sendLine(string);
-    gp_detail.sendLine(string);
-  }
-  gp.sendEndOfData();
-  gp_detail.sendEndOfData();
-
+  main_plot->plot_path(next_x_vals, next_y_vals);
+  detail_plot->plot_path(next_x_vals, next_y_vals);
 }
 
 #endif //PATH_PLANNING_PATH_H

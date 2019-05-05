@@ -7,9 +7,10 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 
-#include "helpers.h"
 #include "path.h"
 #include "json.hpp"
+#include "plot.h"
+#include "helpers.h"
 
 using nlohmann::json;
 using std::string;
@@ -40,12 +41,10 @@ int main(int argc, char* argv[]) {
     map_waypoints.push_back(map_waypoint);
   }
 
-  GnuplotPipe gp, gp_detail;
-  gp.sendLine("set title 'map'; set xlabel 'x'; set ylabel 'y'");
-  gp_detail.sendLine("set title 'detail'; set xlabel 'x'; set ylabel 'y'");
-//  gp.sendLine("set xrange [0:2000]; set yrange [0:2000]");
+  Plot *main_plot = new Plot("set title 'map'; set xlabel 'x'; set ylabel 'y'");
+  Plot *detail_plot = new Plot("set title 'detail'; set xlabel 'x'; set ylabel 'y'");
 
-  h.onMessage([&map_waypoints, &gp, &gp_detail]
+  h.onMessage([&map_waypoints, main_plot, detail_plot]
                   (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                    uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -101,7 +100,7 @@ int main(int argc, char* argv[]) {
                              next_y_vals,
                              map_waypoints,
                              vector_data,
-                             gp, gp_detail);
+                             main_plot, detail_plot);
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
