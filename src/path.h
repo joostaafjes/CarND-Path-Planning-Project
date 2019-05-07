@@ -213,23 +213,7 @@ void calculate_new_path(car_type car,
 
   car_type reference = determine_reference(car, previous_path);
 
-  // test
-  xy_type global, local, global_after;
-
-//  local x,y:0.4,481.994
-//    global.x = 1469.77;
-//    global.y = 1270.37;
-//  global.x = 1200;
-//  global.y = 1200;
-//  reference.yaw = -0.784357;
-//  reference.x = 1129.016;
-//  reference.y = 929.4717;
-//  local = convert_to_car_coordinates(reference, global);
-//  global_after = convert_to_global_coordinates(reference, local);
-
   tk::spline s = getSpline(car, reference, previous_path, map_waypoints, main_plot, detail_plot);
-
-//  std::cout << "Current speed (m/s): " << car.speed << std::endl;
 
   /*
    * Take from previous path
@@ -241,10 +225,8 @@ void calculate_new_path(car_type car,
   }
 
   /*
-   * Udactity way
+   * Calculate how to break up spline points so that we travel at our desired reference volicity
    */
-
-  // Calculate how to break up spline points so that we travel at our desired reference volicity
   double target_x = 30.0;
   double target_y = s(target_x);
   double target_dist = sqrt((target_x * target_x) + (target_y * target_y));
@@ -267,25 +249,12 @@ void calculate_new_path(car_type car,
   double target_speed = get_target_speed(car, sensor_data);
   for (int i = 0; i < (50 - size); ++i) {
     double interval = get_interval(current_speed_in_km_per_interval, target_speed);
-    double cosinus = cos(deg2rad(car.yaw));
-//    if (size > 1) {
-//      cosinus = atan((previous_path[size - 1].y - previous_path[size - 2].y)/(previous_path[size - 1].x - previous_path[size - 2].x)) * 180 / M_PI;
-//    }
-
-    /*
-     * Udactity way
-     */
-
 
     // Fill up the rest of our path planner after filling it with previous points, here we we always output
     double N = target_dist / current_speed_in_km_per_interval;
     xy_type xy_local;
-//    std::cout << "x_add_on:" << x_add_on << std::endl;
-//    std::cout << "target_dist:" << target_dist << std::endl;
-//    std::cout << "N:" << N << std::endl;
     xy_local.x = x_add_on + target_x / N;
     xy_local.y = s(xy_local.x);
-//    std::cout << "local x,y:" << xy_local.x << "," << xy_local.y << std::endl;
 
     x_add_on = xy_local.x;
 
@@ -293,23 +262,8 @@ void calculate_new_path(car_type car,
     xy_type global_xy = convert_to_global_coordinates(reference, xy_local);
     double x = global_xy.x;
     double y = global_xy.y;
-//    std::cout << "global x,y:" << x << "," << y << std::endl;
-
-    /*
-     * Udacity way end
-     */
-
-//    double x = last_x_pos + (i + 1) * interval * cosinus;
-//    double y = s(x);
-//    std::cout << "last_x_post:" << last_x_pos << std::endl;
-//    std::cout << "i:" << i << std::endl;
-//    std::cout << "interval:" << interval << std::endl;
-//    std::cout << "cosinus:" << cosinus << std::endl;
     double v = sqrt((x - prev_x) * (x - prev_x) + (y - prev_y) * (y - prev_y));
     double factor = interval / v;
-//    std::cout << "factor:" << factor << std::endl;
-//    x = last_x_pos + (i + 1) * interval * cosinus * factor;
-//    y = s(x);
     next_x_vals.push_back(x);
     next_y_vals.push_back(y);
     double angle = atan((y - prev_y)/(x - prev_x)) * 180 / M_PI;
