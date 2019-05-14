@@ -184,7 +184,7 @@ double Trajectory::get_target_speed(car_type car, const vector<sensor_type> &sen
 
   for (auto const &sensor_data: sensor_data_vector) {
     if (sensor_data.s > car.s && sensor_data.s < car.s + 30.0 &&
-        fabs(sensor_data.d - car.d) < 1.5) {
+        fabs(lane * 4 + 2 - sensor_data.d) < 2.0) {
       /*
        * Calculate speed of vehicle
        */

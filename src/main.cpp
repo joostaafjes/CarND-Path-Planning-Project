@@ -94,16 +94,15 @@ int main(int argc, char *argv[]) {
 
           vector<lane_change_event_enum> events;
           events.push_back(KEEP_LANE);
-//          if (current_lane != 0) {
-//            events.push_back(LANE_CHANGE_LEFT);
-//          }
-//          if (current_lane < lanes_available) {
-//            events.push_back(LANGE_CHANGE_RIGHT);
-//          }
+          if (current_lane != 0) {
+            events.push_back(LANE_CHANGE_LEFT);
+          }
+          if (current_lane < lanes_available - 1) {
+            events.push_back(LANGE_CHANGE_RIGHT);
+          }
 
           vector<Trajectory> list_trajectories;
-          double best_target_speed = -1.0;
-          int best_trajectory_index = -1;
+          Trajectory *best_trajectory = nullptr;
           for (int index = 0; index < events.size(); index++) {
             Trajectory *trajectory = new Trajectory(
                 main_car,
@@ -131,18 +130,21 @@ int main(int argc, char *argv[]) {
             /*
              * Choose most optimal trajectory
              */
-            if (trajectory->target_speed > best_target_speed) {
-              best_trajectory_index = index;
+            if (best_trajectory == nullptr || trajectory->target_speed > best_trajectory->target_speed) {
+              best_trajectory = trajectory;
             }
           }
 
           /**
-           * define a path made up of (x,y) points that the car will visit
-           *   sequentially every .02 seconds
+           * Define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
            */
-          msgJson["next_x"] = list_trajectories[best_trajectory_index].next_x_vals;
-          msgJson["next_y"] = list_trajectories[best_trajectory_index].next_y_vals;
-          current_lane = list_trajectories[best_trajectory_index].lane;
+          msgJson["next_x"] = best_trajectory->next_x_vals;
+          msgJson["next_y"] = best_trajectory->next_y_vals;
+
+          if (best_trajectory-> lane != current_lane) {
+            std::cout << "Change lange from " << current_lane << " to " << best_trajectory->lane;
+            current_lane = best_trajectory->lane;
+          }
 
           auto msg = "42[\"control\"," + msgJson.dump() + "]";
 
