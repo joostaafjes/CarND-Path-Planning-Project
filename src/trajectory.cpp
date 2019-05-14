@@ -1,17 +1,25 @@
 //
-// Created by Joost Aafjes on 2019-04-17.
+// Created by Joost Aafjes on 2019-05-13.
 //
 
-#ifndef PATH_PLANNING_PATH_H
-#define PATH_PLANNING_PATH_H
+#include "trajectory.h"
 
-#include "helpers.h"
+Trajectory::Trajectory(const car_type &car,
+                       int lane,
+                       const vector<xy_type> &previous_path,
+                       const vector<map_waypoints_type> &map_waypoints,
+                       const vector<sensor_type> &sensor_data,
+                       Plot *main_plot, Plot *detail_plot) {
+  this->car = car;
+  this->lane = lane;
+  this->previous_path = previous_path;
+  this->map_waypoints = map_waypoints;
+  this->sensor_data = sensor_data;
+  this->main_plot = main_plot;
+  this->detail_plot = detail_plot;
+}
 
-#include <iostream>
-#include "spline.h"
-#include "plot.h"
-
-car_type determine_reference(const car_type &car, const vector<xy_type> &previous_path) {
+car_type Trajectory::determine_reference(const car_type &car, const vector<xy_type> &previous_path) {
   car_type reference;
 
   int size = previous_path.size();
@@ -38,7 +46,7 @@ car_type determine_reference(const car_type &car, const vector<xy_type> &previou
   return reference;
 }
 
-xy_type convert_to_car_coordinates(const car_type &reference, xy_type &xy) {
+xy_type Trajectory::convert_to_car_coordinates(const car_type &reference, const xy_type &xy) {
   xy_type car_xy;
 
   double shift_x = xy.x - reference.x;
@@ -50,7 +58,7 @@ xy_type convert_to_car_coordinates(const car_type &reference, xy_type &xy) {
   return car_xy;
 }
 
-xy_type convert_to_global_coordinates(car_type &reference, xy_type &xy) {
+xy_type Trajectory::convert_to_global_coordinates(car_type &reference, xy_type &xy) {
   xy_type global_xy;
 
   global_xy.x = (xy.x * cos(reference.yaw)) - xy.y * sin(reference.yaw);
@@ -60,16 +68,15 @@ xy_type convert_to_global_coordinates(car_type &reference, xy_type &xy) {
   global_xy.y += reference.y;
 
   return global_xy;
-
 }
 
-tk::spline getSpline(const car_type &car,
+tk::spline Trajectory::getSpline(const car_type &car,
+                     const int lane,
                      const car_type &reference,
                      const vector<xy_type> &previous_path,
                      const vector<map_waypoints_type> &map_waypoints,
                      Plot *main_plot, Plot *detail_plot) {
   vector<double> path_x, path_y, path_x_car, path_y_car;
-  int lane = 1;
 
   /*
    * Take last 2 points
@@ -111,7 +118,7 @@ tk::spline getSpline(const car_type &car,
     xy_type xy_input;
     xy_input.x = path_x[index];
     xy_input.y = path_y[index];
-    xy_type xy = convert_to_car_coordinates(reference, xy_input);
+    xy_type xy = this->convert_to_car_coordinates(reference, xy_input);
     path_x_car.push_back(xy.x);
     path_y_car.push_back(xy.y);
 //    std::cout << "Spline input: x:" << xy_input.x << ",y:" << xy_input.y << ", output: x:" << xy.x << ",y:" << xy.y << std::endl;
@@ -126,16 +133,18 @@ tk::spline getSpline(const car_type &car,
   return spline;
 }
 
-double get_interval(double &current_speed_in_m_per_interval, const double target_speed_m_per_interval) {
+double Trajectory::get_interval(double &current_speed_in_m_per_interval, const double target_speed_m_per_interval) {
 //  std::cout << "Current speed (m/0.02s): " << current_speed_in_m_per_interval << " : ";
 
   if (current_speed_in_m_per_interval < target_speed_m_per_interval) {
     current_speed_in_m_per_interval =
         std::min(current_speed_in_m_per_interval + MAX_ACC_M_PER_INTERVAL, target_speed_m_per_interval);
-    std::cout << "Accelerate to " << current_speed_in_m_per_interval << " m/interval (target speed:" << target_speed_m_per_interval << ")" << std::endl;
+    std::cout << "Accelerate to " << current_speed_in_m_per_interval << " m/interval (target speed:"
+              << target_speed_m_per_interval << ")" << std::endl;
   } else if (current_speed_in_m_per_interval > target_speed_m_per_interval) {
     current_speed_in_m_per_interval = std::max(0.0, current_speed_in_m_per_interval - MAX_ACC_M_PER_INTERVAL);
-    std::cout << "Slow down to " << current_speed_in_m_per_interval << " m/interval (target speed:" << target_speed_m_per_interval << ")" << std::endl;
+    std::cout << "Slow down to " << current_speed_in_m_per_interval << " m/interval (target speed:"
+              << target_speed_m_per_interval << ")" << std::endl;
   }
   if (current_speed_in_m_per_interval > MAX_SPEED_M_PER_INTERVAL) {
     current_speed_in_m_per_interval = MAX_SPEED_M_PER_INTERVAL;
@@ -146,11 +155,11 @@ double get_interval(double &current_speed_in_m_per_interval, const double target
   return current_speed_in_m_per_interval;
 }
 
-double convert_from_mile_per_hour_to_m_per_interval(const double &speed_mile_per_hour) {
+double Trajectory::convert_from_mile_per_hour_to_m_per_interval(const double &speed_mile_per_hour) {
   return INTERVAL_IN_SECONDS * speed_mile_per_hour * 1.6 * 1000 / 3600;
 }
 
-double get_current_speed(double car_speed, const vector<xy_type> &previous_path) {
+double Trajectory::get_current_speed(double car_speed, const vector<xy_type> &previous_path) {
   int size = previous_path.size();
   double current_speed_in_m_per_interval;
 
@@ -169,7 +178,7 @@ double get_current_speed(double car_speed, const vector<xy_type> &previous_path)
   return current_speed_in_m_per_interval;
 }
 
-double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vector) {
+double Trajectory::get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vector) {
 
   double target_speed = MAX_SPEED_M_PER_INTERVAL;
 
@@ -179,8 +188,10 @@ double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vec
       /*
        * Calculate speed of vehicle
        */
-      double v_m_per_interval = sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy) * INTERVAL_IN_SECONDS;
-      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) " + std::to_string(v_m_per_interval));
+      double v_m_per_interval =
+          sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy) * INTERVAL_IN_SECONDS;
+      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) "
+                   + std::to_string(v_m_per_interval));
       log_info("d:" + std::to_string(sensor_data.d));
 
       if (v_m_per_interval < target_speed) {
@@ -192,14 +203,7 @@ double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vec
   return target_speed;
 }
 
-
-void calculate_new_path(car_type car,
-                        vector<xy_type> previous_path,
-                        vector<double> &next_x_vals,
-                        vector<double> &next_y_vals,
-                        vector<map_waypoints_type> &map_waypoints,
-                        vector<sensor_type> sensor_data,
-                        Plot *main_plot, Plot *detail_plot) {
+void Trajectory::calculate_new_trajectory() {
 
   detail_plot->scale(car.x, car.y);
 
@@ -213,7 +217,7 @@ void calculate_new_path(car_type car,
 
   car_type reference = determine_reference(car, previous_path);
 
-  tk::spline s = getSpline(car, reference, previous_path, map_waypoints, main_plot, detail_plot);
+  tk::spline s = getSpline(car, lane, reference, previous_path, map_waypoints, main_plot, detail_plot);
 
   /*
    * Take from previous path
@@ -246,7 +250,7 @@ void calculate_new_path(car_type car,
   double prev_x = last_x_pos;
   double prev_y = last_y_pos;
   double current_speed_in_km_per_interval = get_current_speed(car.speed, previous_path);
-  double target_speed = get_target_speed(car, sensor_data);
+  target_speed = get_target_speed(car, sensor_data);
   for (int i = 0; i < (50 - size); ++i) {
     double interval = get_interval(current_speed_in_km_per_interval, target_speed);
 
@@ -266,7 +270,7 @@ void calculate_new_path(car_type car,
     double factor = interval / v;
     next_x_vals.push_back(x);
     next_y_vals.push_back(y);
-    double angle = atan((y - prev_y)/(x - prev_x)) * 180 / M_PI;
+    double angle = atan((y - prev_y) / (x - prev_x)) * 180 / M_PI;
     prev_x = x;
     prev_y = y;
 //    std::cout << "x: " << x << ", y: " << y << ", car.yaw:" << car.yaw << ", x/y angle:" << angle << ", v=" << v << std::endl;
@@ -275,5 +279,3 @@ void calculate_new_path(car_type car,
   main_plot->plot_path(next_x_vals, next_y_vals);
   detail_plot->plot_path(next_x_vals, next_y_vals);
 }
-
-#endif //PATH_PLANNING_PATH_H

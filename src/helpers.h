@@ -89,5 +89,6 @@ void log_debug(std::string msg);
 
 #define LOG_LEVEL INFO
 
+enum lane_change_event_enum { KEEP_LANE, LANE_CHANGE_LEFT, LANGE_CHANGE_RIGHT };
 
 #endif  // HELPERS_H
