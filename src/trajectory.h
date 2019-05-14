@@ -20,6 +20,9 @@ class Trajectory {
              const vector<sensor_type> &sensor_data,
              Plot *main_plot, Plot *detail_plot);
   void calculate_new_trajectory();
+  void prepare_plot();
+  void plot_spline();
+  void plot_next_val();
 
   car_type car;
   int lane;
@@ -46,6 +49,8 @@ class Trajectory {
                        const vector<xy_type> &previous_path,
                        const vector<map_waypoints_type> &map_waypoints,
                        Plot *main_plot, Plot *detail_plot);
+
+  vector<double> path_x, path_y, path_x_car, path_y_car;
 };
 
 #endif //PATH_PLANNING_TRAJECTORY_H

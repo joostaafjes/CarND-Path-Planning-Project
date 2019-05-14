@@ -76,7 +76,6 @@ tk::spline Trajectory::getSpline(const car_type &car,
                      const vector<xy_type> &previous_path,
                      const vector<map_waypoints_type> &map_waypoints,
                      Plot *main_plot, Plot *detail_plot) {
-  vector<double> path_x, path_y, path_x_car, path_y_car;
 
   /*
    * Take last 2 points
@@ -108,9 +107,6 @@ tk::spline Trajectory::getSpline(const car_type &car,
   path_y.push_back(xy2[1]);
   path_y.push_back(xy3[1]);
 
-  main_plot->plot_path(path_x, path_y);
-  detail_plot->plot_path(path_x, path_y);
-
   /*
    * Convert to car coordinates
    */
@@ -131,6 +127,10 @@ tk::spline Trajectory::getSpline(const car_type &car,
   spline.set_points(path_x_car, path_y_car);
 
   return spline;
+}
+void Trajectory::plot_spline() {
+  main_plot->plot_path(path_x, path_y);
+  detail_plot->plot_path(path_x, path_y);
 }
 
 double Trajectory::get_interval(double &current_speed_in_m_per_interval, const double target_speed_m_per_interval) {
@@ -203,7 +203,7 @@ double Trajectory::get_target_speed(car_type car, const vector<sensor_type> &sen
   return target_speed;
 }
 
-void Trajectory::calculate_new_trajectory() {
+void Trajectory::prepare_plot() {
 
   detail_plot->scale(car.x, car.y);
 
@@ -214,7 +214,9 @@ void Trajectory::calculate_new_trajectory() {
   detail_plot->prepare_plot_with_3_lines();
   detail_plot->plot_waypoints(map_waypoints);
   detail_plot->plot_car_position(car);
+}
 
+void Trajectory::calculate_new_trajectory() {
   car_type reference = determine_reference(car, previous_path);
 
   tk::spline s = getSpline(car, lane, reference, previous_path, map_waypoints, main_plot, detail_plot);
@@ -275,7 +277,9 @@ void Trajectory::calculate_new_trajectory() {
     prev_y = y;
 //    std::cout << "x: " << x << ", y: " << y << ", car.yaw:" << car.yaw << ", x/y angle:" << angle << ", v=" << v << std::endl;
   }
+}
 
+void Trajectory::plot_next_val() {
   main_plot->plot_path(next_x_vals, next_y_vals);
   detail_plot->plot_path(next_x_vals, next_y_vals);
 }

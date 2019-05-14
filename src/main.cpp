@@ -140,6 +140,9 @@ int main(int argc, char *argv[]) {
            */
           msgJson["next_x"] = best_trajectory->next_x_vals;
           msgJson["next_y"] = best_trajectory->next_y_vals;
+          best_trajectory->prepare_plot();
+          best_trajectory->plot_spline();
+          best_trajectory->plot_next_val();
 
           if (best_trajectory-> lane != current_lane) {
             std::cout << "Change lange from " << current_lane << " to " << best_trajectory->lane;
