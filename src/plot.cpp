@@ -46,7 +46,7 @@ void Plot::scale(int x, int y) {
 void Plot::prepare_plot_with_3_lines() {
   if (enabled) {
     gnuPlotPipe.sendLine(
-        "plot '-', '-' with linespoints linestyle 1,'-' with linespoints linestyle 2, '-' with linespoints linestyle 3");
+        "plot '-', '-' with linespoints linestyle 1 title 'car', '-' with linespoints linestyle 2 title 'spline', '-' with linespoints linestyle 3 title 'trajectory' ");
   }
 }
 
@@ -57,6 +57,7 @@ void Plot::plot_waypoints(vector<map_waypoints_type> &map_waypoints) {
       sprintf(string, "%f %f", map_waypoints[index].x, map_waypoints[index].y);
       gnuPlotPipe.sendLine(string);
     }
+    gnuPlotPipe.sendLine(" title 'waypoints' ");
     gnuPlotPipe.sendEndOfData();
   }
 }
