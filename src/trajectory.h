@@ -25,6 +25,7 @@ class Trajectory {
   void prepare_plot();
   void plot_spline();
   void plot_next_val();
+  void post_processing();
   double costs ();
 
   car_type car;
@@ -53,6 +54,8 @@ class Trajectory {
                        Plot *main_plot, Plot *detail_plot);
 
   vector<double> path_x, path_y, path_x_car, path_y_car;
+
+  bool accelerate = false, decelerate = false;
 };
 
 #endif //PATH_PLANNING_TRAJECTORY_H

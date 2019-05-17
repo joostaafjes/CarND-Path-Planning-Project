@@ -147,10 +147,15 @@ int main(int argc, char *argv[]) {
           best_trajectory->plot_spline();
           best_trajectory->plot_next_val();
 
-          if (best_trajectory-> lane != current_lane) {
+          if (best_trajectory->lane != current_lane) {
             std::cout << "Change lange from " << current_lane << " to " << best_trajectory->lane;
             current_lane = best_trajectory->lane;
           }
+
+          /**
+           * Do some stuff afterwards
+           */
+          best_trajectory->post_processing();
 
           auto msg = "42[\"control\"," + msgJson.dump() + "]";
 

@@ -14,7 +14,7 @@ using std::vector;
 
 class Plot {
  public:
-  Plot(std::string ini_string, bool enable);
+  Plot(std::string ini_string, bool enabled);
   GnuplotPipe gnuPlotPipe;
   void scale(int x, int y);
   void prepare_plot_with_3_lines();
@@ -22,7 +22,7 @@ class Plot {
   void plot_car_position(car_type car);
   void plot_path(vector<double> &path_x, vector<double> &path_y);
  private:
-  bool enable;
+  bool enabled;
 };
 
 #endif //PATH_PLANNING_PLOT_H

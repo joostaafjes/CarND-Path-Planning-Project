@@ -242,33 +242,41 @@ void Trajectory::determine_speed() {
 
   if (reference_velocity < target_speed) {
     reference_velocity += MAX_ACCELERATION;
-    std::cout << "Accelerate to " << reference_velocity << " MPH" << std::endl;
+    accelerate = true;
   }
 
   if (reference_velocity > target_speed) {
     reference_velocity -= MAX_ACCELERATION;
     reference_velocity = fmax(0.0, reference_velocity);
-    std::cout << "Decelerate to " << reference_velocity << " MPH" << std::endl;
+    decelerate = true;
   }
 }
+
+void Trajectory::post_processing() {
+  if (decelerate) {
+    std::cout << "Decelerate to " << reference_velocity << " MPH" << std::endl;
+  }
+  if (accelerate) {
+    std::cout << "Accelerate to " << reference_velocity << " MPH" << std::endl;
+  }
+};
 
 /*
  * Calculate costs of this trajectory
  */
 double Trajectory::costs () {
-  double costs1 = 1 * (1 - target_speed / MAX_SPEED);
-  double costs2 = 1 * (fabs(lane - car.current_lane) / NO_OF_LANES);
-  double costs = costs1 + costs2;
+  double costs = 1 * (1 - target_speed / MAX_SPEED) +
+                 1 * (fabs(lane - car.current_lane) / NO_OF_LANES);
 
   switch (event) {
     case KEEP_LANE:
-      std::cout << "Costs of event KEEP_LANE:" << costs1<<","<< costs2<<","<< costs << std::endl;
+      std::cout << "Costs of event KEEP_LANE:" << costs << std::endl;
       break;
     case LANGE_CHANGE_RIGHT:
-      std::cout << "Costs of event LANE_CHANGE_RIGHT:" << costs1<<","<< costs2<<","<< costs << std::endl;
+      std::cout << "Costs of event LANE_CHANGE_RIGHT:" << costs << std::endl;
       break;
     case LANE_CHANGE_LEFT:
-      std::cout << "Costs of event LANE_CHANGE_LEFT:" << costs1<<","<< costs2<<","<<costs << std::endl;
+      std::cout << "Costs of event LANE_CHANGE_LEFT:" << costs << std::endl;
       break;
   }
 
