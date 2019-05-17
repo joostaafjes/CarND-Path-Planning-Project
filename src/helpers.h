@@ -84,15 +84,6 @@ vector<xy_type> join_previous_path(const vector<double> &x, const vector<double>
 
 vector<sensor_type> convert_sensor_data(vector<vector<double>> input_sensor_data);
 
-void log_info(std::string msg);
-
-void log_debug(std::string msg);
-
-#define DEBUG 1
-#define INFO 2
-
-#define LOG_LEVEL INFO
-
 enum lane_change_event_enum { KEEP_LANE, LANE_CHANGE_LEFT, LANGE_CHANGE_RIGHT };
 
 #endif  // HELPERS_H

@@ -230,9 +230,9 @@ void Trajectory::determine_speed() {
        */
       double vehicle_speed =
           sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy);
-      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) "
-                   + std::to_string(vehicle_speed));
-      log_info("d:" + std::to_string(sensor_data.d));
+      std::cout << "Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) "
+                   + std::to_string(vehicle_speed);
+      std::cout << "d:" + std::to_string(sensor_data.d);
 
       if (vehicle_speed < target_speed) {
         target_speed = vehicle_speed;
