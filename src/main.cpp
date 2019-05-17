@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
 
   double reference_velocity = 0.0;
 
-  Plot *main_plot = new Plot("set title 'map'; set xlabel 'x'; set ylabel 'y'", false);
-  Plot *detail_plot = new Plot("set title 'detail'; set xlabel 'x'; set ylabel 'y'", false);
+  Plot *main_plot = new Plot("set title 'map'; set xlabel 'x'; set ylabel 'y'", ENABLE_PLOTTING);
+  Plot *detail_plot = new Plot("set title 'detail'; set xlabel 'x'; set ylabel 'y'", ENABLE_PLOTTING);
 
   h.onMessage([&map_waypoints, main_plot, detail_plot, &current_lane, &lanes_available, &reference_velocity]
                   (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
