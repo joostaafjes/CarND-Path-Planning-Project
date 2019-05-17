@@ -222,17 +222,17 @@ void Trajectory::determine_speed() {
 
   target_speed = MAX_SPEED;
 
-  for (auto const &sensor_data: sensor_data) {
-    if (sensor_data.s > car.s && sensor_data.s < car.s + 30.0 &&
-        fabs(lane * LANE_WIDTH_IN_M + LANE_WIDTH_IN_M / 2 - sensor_data.d) < LANE_WIDTH_IN_M / 2) {
+  for (int index = 0; index < sensor_data.size(); index++) {
+    if (sensor_data[index].s > car.s && sensor_data[index].s < car.s + 30.0 &&
+        fabs(lane * LANE_WIDTH_IN_M + LANE_WIDTH_IN_M / 2 - sensor_data[index].d) < LANE_WIDTH_IN_M / 2) {
       /*
        * Calculate speed of vehicle
        */
       double vehicle_speed =
-          sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy);
-      std::cout << "Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) "
+          sqrt(sensor_data[index].vx * sensor_data[index].vx + sensor_data[index].vy * sensor_data[index].vy);
+      std::cout << "Vechile(" + std::to_string(sensor_data[index].id) + ") detected with speed(mpi) "
                    + std::to_string(vehicle_speed);
-      std::cout << "d:" + std::to_string(sensor_data.d);
+      std::cout << "d:" + std::to_string(sensor_data[index].d);
 
       if (vehicle_speed < target_speed) {
         target_speed = vehicle_speed;
