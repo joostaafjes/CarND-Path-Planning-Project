@@ -14,7 +14,9 @@
 class Trajectory {
  public:
   Trajectory(const car_type &car,
+             lane_change_event_enum event,
              int lane,
+             double reference_velocity,
              const vector<xy_type> &previous_path,
              const vector<map_waypoints_type> &map_waypoints,
              const vector<sensor_type> &sensor_data,
@@ -23,9 +25,12 @@ class Trajectory {
   void prepare_plot();
   void plot_spline();
   void plot_next_val();
+  double costs ();
 
   car_type car;
+  lane_change_event_enum event;
   int lane;
+  double reference_velocity;
   vector<xy_type> previous_path;
   vector<double> next_x_vals;
   vector<double> next_y_vals;
@@ -39,10 +44,7 @@ class Trajectory {
   car_type determine_reference(const car_type &car, const vector<xy_type> &previous_path);
   xy_type convert_to_global_coordinates(car_type &reference, xy_type &xy);
   xy_type convert_to_car_coordinates(const car_type &reference, const xy_type &xy);
-  double get_interval(double &current_speed_in_m_per_interval, const double target_speed_m_per_interval);
-  double convert_from_mile_per_hour_to_m_per_interval(const double &speed_mile_per_hour);
-  double get_current_speed(double car_speed, const vector<xy_type> &previous_path);
-  double get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vector);
+  void determine_speed();
   tk::spline getSpline(const car_type &car,
                        const int lane,
                        const car_type &reference,

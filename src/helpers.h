@@ -35,6 +35,7 @@ struct car_type {
   double d;
   double yaw;
   double speed;
+  int current_lane;
 };
 
 struct sensor_type {
@@ -42,8 +43,11 @@ struct sensor_type {
 };
 
 const double INTERVAL_IN_SECONDS = 0.02; // seconds
-const double MAX_SPEED_M_PER_INTERVAL = 0.444; // m per 0.02 second
+const double MAX_SPEED = 45.0; // MPH
+const double MAX_ACCELERATION = 0.224;
 const double MAX_ACC_M_PER_INTERVAL = 0.003; // = 10m/s^2 converted to m/interval is 0.004 but that causes error in simulator
+const double LANE_WIDTH_IN_M = 4.0;
+const int NO_OF_LANES = 3;
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,

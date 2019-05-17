@@ -179,6 +179,7 @@ vector<sensor_type> convert_sensor_data(vector<vector<double>> input_sensor_data
   return output_sensor_data;
 }
 
+
 void log_info(std::string msg) {
   if (LOG_LEVEL <= INFO) {
     std::cout << msg << std::endl;

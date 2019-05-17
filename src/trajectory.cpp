@@ -5,13 +5,17 @@
 #include "trajectory.h"
 
 Trajectory::Trajectory(const car_type &car,
+                       lane_change_event_enum event,
                        int lane,
+                       double reference_velocity,
                        const vector<xy_type> &previous_path,
                        const vector<map_waypoints_type> &map_waypoints,
                        const vector<sensor_type> &sensor_data,
                        Plot *main_plot, Plot *detail_plot) {
   this->car = car;
+  this->event = event;
   this->lane = lane;
+  this->reference_velocity = reference_velocity;
   this->previous_path = previous_path;
   this->map_waypoints = map_waypoints;
   this->sensor_data = sensor_data;
@@ -71,11 +75,11 @@ xy_type Trajectory::convert_to_global_coordinates(car_type &reference, xy_type &
 }
 
 tk::spline Trajectory::getSpline(const car_type &car,
-                     const int lane,
-                     const car_type &reference,
-                     const vector<xy_type> &previous_path,
-                     const vector<map_waypoints_type> &map_waypoints,
-                     Plot *main_plot, Plot *detail_plot) {
+                                 const int lane,
+                                 const car_type &reference,
+                                 const vector<xy_type> &previous_path,
+                                 const vector<map_waypoints_type> &map_waypoints,
+                                 Plot *main_plot, Plot *detail_plot) {
 
   /*
    * Take last 2 points
@@ -97,9 +101,9 @@ tk::spline Trajectory::getSpline(const car_type &car,
   /*
    * Add three more points
    */
-  vector<double> xy1 = getXY(car.s + 30, 2 + lane * 4, map_waypoints);
-  vector<double> xy2 = getXY(car.s + 60, 2 + lane * 4, map_waypoints);
-  vector<double> xy3 = getXY(car.s + 90, 2 + lane * 4, map_waypoints);
+  vector<double> xy1 = getXY(car.s + 30, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
+  vector<double> xy2 = getXY(car.s + 60, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
+  vector<double> xy3 = getXY(car.s + 90, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
   path_x.push_back(xy1[0]);
   path_x.push_back(xy2[0]);
   path_x.push_back(xy3[0]);
@@ -131,76 +135,6 @@ tk::spline Trajectory::getSpline(const car_type &car,
 void Trajectory::plot_spline() {
   main_plot->plot_path(path_x, path_y);
   detail_plot->plot_path(path_x, path_y);
-}
-
-double Trajectory::get_interval(double &current_speed_in_m_per_interval, const double target_speed_m_per_interval) {
-//  std::cout << "Current speed (m/0.02s): " << current_speed_in_m_per_interval << " : ";
-
-  if (current_speed_in_m_per_interval < target_speed_m_per_interval) {
-    current_speed_in_m_per_interval =
-        std::min(current_speed_in_m_per_interval + MAX_ACC_M_PER_INTERVAL, target_speed_m_per_interval);
-    std::cout << "Accelerate to " << current_speed_in_m_per_interval << " m/interval (target speed:"
-              << target_speed_m_per_interval << ")" << std::endl;
-  } else if (current_speed_in_m_per_interval > target_speed_m_per_interval) {
-    current_speed_in_m_per_interval = std::max(0.0, current_speed_in_m_per_interval - MAX_ACC_M_PER_INTERVAL);
-    std::cout << "Slow down to " << current_speed_in_m_per_interval << " m/interval (target speed:"
-              << target_speed_m_per_interval << ")" << std::endl;
-  }
-  if (current_speed_in_m_per_interval > MAX_SPEED_M_PER_INTERVAL) {
-    current_speed_in_m_per_interval = MAX_SPEED_M_PER_INTERVAL;
-  }
-
-//  std::cout << "New speed (m/0.02s): " << current_speed_in_m_per_interval << std::endl;
-
-  return current_speed_in_m_per_interval;
-}
-
-double Trajectory::convert_from_mile_per_hour_to_m_per_interval(const double &speed_mile_per_hour) {
-  return INTERVAL_IN_SECONDS * speed_mile_per_hour * 1.6 * 1000 / 3600;
-}
-
-double Trajectory::get_current_speed(double car_speed, const vector<xy_type> &previous_path) {
-  int size = previous_path.size();
-  double current_speed_in_m_per_interval;
-
-  std::cout << "current car_speed(MPH):" << car_speed << std::endl;
-  std::cout << "current car_speed(mpi):" << convert_from_mile_per_hour_to_m_per_interval(car_speed) << std::endl;
-  if (size < 2) {
-    current_speed_in_m_per_interval = convert_from_mile_per_hour_to_m_per_interval(car_speed);
-  } else {
-    std::cout << "current speed from previous path with size: " << size << std::endl;
-    double diff_x = previous_path[size - 1].x - previous_path[size - 2].x;
-    double diff_y = previous_path[size - 1].y - previous_path[size - 2].y;
-    current_speed_in_m_per_interval = sqrt(diff_x * diff_x + diff_y * diff_y);
-    std::cout << "current speed from previous path: " << current_speed_in_m_per_interval << std::endl;
-  }
-
-  return current_speed_in_m_per_interval;
-}
-
-double Trajectory::get_target_speed(car_type car, const vector<sensor_type> &sensor_data_vector) {
-
-  double target_speed = MAX_SPEED_M_PER_INTERVAL;
-
-  for (auto const &sensor_data: sensor_data_vector) {
-    if (sensor_data.s > car.s && sensor_data.s < car.s + 30.0 &&
-        fabs(lane * 4 + 2 - sensor_data.d) < 2.0) {
-      /*
-       * Calculate speed of vehicle
-       */
-      double v_m_per_interval =
-          sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy) * INTERVAL_IN_SECONDS;
-      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) "
-                   + std::to_string(v_m_per_interval));
-      log_info("d:" + std::to_string(sensor_data.d));
-
-      if (v_m_per_interval < target_speed) {
-        target_speed = v_m_per_interval;
-      }
-    }
-  }
-
-  return target_speed;
 }
 
 void Trajectory::prepare_plot() {
@@ -249,15 +183,17 @@ void Trajectory::calculate_new_trajectory() {
     last_y_pos = previous_path[size - 1].y;
   }
 
+  /*
+   * Update speed
+   */
+  determine_speed();
+
   double prev_x = last_x_pos;
   double prev_y = last_y_pos;
-  double current_speed_in_km_per_interval = get_current_speed(car.speed, previous_path);
-  target_speed = get_target_speed(car, sensor_data);
   for (int i = 0; i < (50 - size); ++i) {
-    double interval = get_interval(current_speed_in_km_per_interval, target_speed);
 
     // Fill up the rest of our path planner after filling it with previous points, here we we always output
-    double N = target_dist / current_speed_in_km_per_interval;
+    double N = target_dist / (0.02 * reference_velocity / 2.24);
     xy_type xy_local;
     xy_local.x = x_add_on + target_x / N;
     xy_local.y = s(xy_local.x);
@@ -269,10 +205,8 @@ void Trajectory::calculate_new_trajectory() {
     double x = global_xy.x;
     double y = global_xy.y;
     double v = sqrt((x - prev_x) * (x - prev_x) + (y - prev_y) * (y - prev_y));
-    double factor = interval / v;
     next_x_vals.push_back(x);
     next_y_vals.push_back(y);
-    double angle = atan((y - prev_y) / (x - prev_x)) * 180 / M_PI;
     prev_x = x;
     prev_y = y;
 //    std::cout << "x: " << x << ", y: " << y << ", car.yaw:" << car.yaw << ", x/y angle:" << angle << ", v=" << v << std::endl;
@@ -282,4 +216,61 @@ void Trajectory::calculate_new_trajectory() {
 void Trajectory::plot_next_val() {
   main_plot->plot_path(next_x_vals, next_y_vals);
   detail_plot->plot_path(next_x_vals, next_y_vals);
+}
+
+void Trajectory::determine_speed() {
+
+  target_speed = MAX_SPEED;
+
+  for (auto const &sensor_data: sensor_data) {
+    if (sensor_data.s > car.s && sensor_data.s < car.s + 30.0 &&
+        fabs(lane * LANE_WIDTH_IN_M + LANE_WIDTH_IN_M / 2 - sensor_data.d) < LANE_WIDTH_IN_M / 2) {
+      /*
+       * Calculate speed of vehicle
+       */
+      double vehicle_speed =
+          sqrt(sensor_data.vx * sensor_data.vx + sensor_data.vy * sensor_data.vy);
+      log_info("Vechile(" + std::to_string(sensor_data.id) + ") detected with speed(mpi) "
+                   + std::to_string(vehicle_speed));
+      log_info("d:" + std::to_string(sensor_data.d));
+
+      if (vehicle_speed < target_speed) {
+        target_speed = vehicle_speed;
+      }
+    }
+  }
+
+  if (reference_velocity < target_speed) {
+    reference_velocity += MAX_ACCELERATION;
+    std::cout << "Accelerate to " << reference_velocity << " MPH" << std::endl;
+  }
+
+  if (reference_velocity > target_speed) {
+    reference_velocity -= MAX_ACCELERATION;
+    reference_velocity = fmax(0.0, reference_velocity);
+    std::cout << "Decelerate to " << reference_velocity << " MPH" << std::endl;
+  }
+}
+
+/*
+ * Calculate costs of this trajectory
+ */
+double Trajectory::costs () {
+  double costs1 = 1 * (1 - target_speed / MAX_SPEED);
+  double costs2 = 1 * (fabs(lane - car.current_lane) / NO_OF_LANES);
+  double costs = costs1 + costs2;
+
+  switch (event) {
+    case KEEP_LANE:
+      std::cout << "Costs of event KEEP_LANE:" << costs1<<","<< costs2<<","<< costs << std::endl;
+      break;
+    case LANGE_CHANGE_RIGHT:
+      std::cout << "Costs of event LANE_CHANGE_RIGHT:" << costs1<<","<< costs2<<","<< costs << std::endl;
+      break;
+    case LANE_CHANGE_LEFT:
+      std::cout << "Costs of event LANE_CHANGE_LEFT:" << costs1<<","<< costs2<<","<<costs << std::endl;
+      break;
+  }
+
+  return costs;
 }

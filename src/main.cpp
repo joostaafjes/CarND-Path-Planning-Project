@@ -41,12 +41,14 @@ int main(int argc, char *argv[]) {
     map_waypoints.push_back(map_waypoint);
   }
 
-  int current_lane = 1, lanes_available = 3;
+  int current_lane = 1, lanes_available = NO_OF_LANES;
 
-  Plot *main_plot = new Plot("set title 'map'; set xlabel 'x'; set ylabel 'y'");
-  Plot *detail_plot = new Plot("set title 'detail'; set xlabel 'x'; set ylabel 'y'");
+  double reference_velocity = 0.0;
 
-  h.onMessage([&map_waypoints, main_plot, detail_plot, &current_lane, &lanes_available]
+  Plot *main_plot = new Plot("set title 'map'; set xlabel 'x'; set ylabel 'y'", false);
+  Plot *detail_plot = new Plot("set title 'detail'; set xlabel 'x'; set ylabel 'y'", false);
+
+  h.onMessage([&map_waypoints, main_plot, detail_plot, &current_lane, &lanes_available, &reference_velocity]
                   (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                    uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -73,6 +75,7 @@ int main(int argc, char *argv[]) {
           main_car.d = j[1]["d"];
           main_car.yaw = j[1]["yaw"];
           main_car.speed = j[1]["speed"];
+          main_car.current_lane = current_lane;
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
@@ -89,9 +92,6 @@ int main(int argc, char *argv[]) {
 
           json msgJson;
 
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
-
           vector<lane_change_event_enum> events;
           events.push_back(KEEP_LANE);
           if (current_lane != 0) {
@@ -106,7 +106,9 @@ int main(int argc, char *argv[]) {
           for (int index = 0; index < events.size(); index++) {
             Trajectory *trajectory = new Trajectory(
                 main_car,
+                events[index],
                 current_lane,
+                reference_velocity,
                 previous_path,
                 map_waypoints,
                 vector_data,
@@ -130,8 +132,9 @@ int main(int argc, char *argv[]) {
             /*
              * Choose most optimal trajectory
              */
-            if (best_trajectory == nullptr || trajectory->target_speed > best_trajectory->target_speed) {
+            if (best_trajectory == nullptr || trajectory->costs() < best_trajectory->costs()) {
               best_trajectory = trajectory;
+              reference_velocity = best_trajectory->reference_velocity;
             }
           }
 
