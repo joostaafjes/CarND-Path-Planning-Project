@@ -42,8 +42,8 @@ struct sensor_type {
   double id, x, y, vx, vy, s, d;
 };
 
-const double MAX_SPEED = 45.0; // MPH
-const double MAX_ACCELERATION = 0.224;
+const double MAX_SPEED = 49.0; // MPH
+const double MAX_ACCELERATION = 0.4;
 const double LANE_WIDTH_IN_M = 4.0;
 const int NO_OF_LANES = 3;
 const bool ENABLE_PLOTTING = true;
