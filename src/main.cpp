@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          std::cout << "New telemetry event received..." << std::endl;
+//          std::cout << "New telemetry event received..." << std::endl;
 
           // Main car's localization Data
           car_type main_car;
@@ -85,6 +85,15 @@ int main(int argc, char *argv[]) {
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
 
+          car_type end_path_car = main_car;
+          // Postition car at end of path
+          if (previous_path.size() > 0) {
+//            std::cout << " car.s:" << main_car.s << "->" << end_path_s << std::endl;
+//            std::cout << " car.d:" << main_car.d << "->" << end_path_d << std::endl;
+            end_path_car.s = end_path_s;
+            end_path_car.d = end_path_d;
+          }
+
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
@@ -94,7 +103,7 @@ int main(int argc, char *argv[]) {
 
           vector<lane_change_event_enum> events;
           events.push_back(KEEP_LANE);
-          if (current_lane != 0) {
+          if (current_lane > 0) {
             events.push_back(LANE_CHANGE_LEFT);
           }
           if (current_lane < lanes_available - 1) {
@@ -106,6 +115,7 @@ int main(int argc, char *argv[]) {
           for (int index = 0; index < events.size(); index++) {
             Trajectory *trajectory = new Trajectory(
                 main_car,
+                end_path_car,
                 events[index],
                 current_lane,
                 reference_velocity,
@@ -132,7 +142,8 @@ int main(int argc, char *argv[]) {
             /*
              * Choose most optimal trajectory
              */
-            if (best_trajectory == nullptr || trajectory->costs() < best_trajectory->costs()) {
+            if ((best_trajectory == nullptr || trajectory->costs() < best_trajectory->costs()) &&
+                !trajectory->check_for_collision()) {
               best_trajectory = trajectory;
               reference_velocity = best_trajectory->reference_velocity;
             }

@@ -4,7 +4,8 @@
 
 #include "trajectory.h"
 
-Trajectory::Trajectory(const car_type &car,
+Trajectory::Trajectory(const car_type &main_car,
+                       const car_type &end_of_path_car,
                        lane_change_event_enum event,
                        int lane,
                        double reference_velocity,
@@ -12,7 +13,8 @@ Trajectory::Trajectory(const car_type &car,
                        const vector<map_waypoints_type> &map_waypoints,
                        const vector<sensor_type> &sensor_data,
                        Plot *main_plot, Plot *detail_plot) {
-  this->car = car;
+  this->main_car = main_car;
+  this->end_of_path_car = end_of_path_car;
   this->event = event;
   this->lane = lane;
   this->reference_velocity = reference_velocity;
@@ -23,24 +25,22 @@ Trajectory::Trajectory(const car_type &car,
   this->detail_plot = detail_plot;
 }
 
-car_type Trajectory::determine_reference(const car_type &car, const vector<xy_type> &previous_path) {
+car_type Trajectory::determine_reference(const vector<xy_type> &previous_path) {
   car_type reference;
 
   int size = previous_path.size();
-  double ref_prev_x, ref_prev_y;
   if (size > 1) {
     // from previous path
+    double ref_prev_x, ref_prev_y;
     ref_prev_x = previous_path[size - 2].x;
     ref_prev_y = previous_path[size - 2].y;
     reference.x = previous_path[size - 1].x;
     reference.y = previous_path[size - 1].y;
     reference.yaw = atan2((reference.y - ref_prev_y), (reference.x - ref_prev_x));
   } else {
-    ref_prev_x = car.x - cos(deg2rad(car.yaw));
-    ref_prev_y = car.y - sin(deg2rad(car.yaw));
-    reference.x = car.x;
-    reference.y = car.y;
-    reference.yaw = deg2rad(car.yaw);
+    reference.x = end_of_path_car.x;
+    reference.y = end_of_path_car.y;
+    reference.yaw = deg2rad(end_of_path_car.yaw);
   }
 
 //  std::cout << "reference.x:" << reference.x << std::endl;
@@ -74,9 +74,7 @@ xy_type Trajectory::convert_to_global_coordinates(car_type &reference, xy_type &
   return global_xy;
 }
 
-tk::spline Trajectory::getSpline(const car_type &car,
-                                 const int lane,
-                                 const car_type &reference,
+tk::spline Trajectory::getSpline(const car_type &reference,
                                  const vector<xy_type> &previous_path,
                                  const vector<map_waypoints_type> &map_waypoints,
                                  Plot *main_plot, Plot *detail_plot) {
@@ -92,18 +90,18 @@ tk::spline Trajectory::getSpline(const car_type &car,
     path_x.push_back(previous_path[size - 1].x);
     path_y.push_back(previous_path[size - 1].y);
   } else {
-    path_x.push_back(car.x - cos(deg2rad(car.yaw)));
-    path_y.push_back(car.y - sin(deg2rad(car.yaw)));
-    path_x.push_back(car.x);
-    path_y.push_back(car.y);
+    path_x.push_back(end_of_path_car.x - cos(deg2rad(end_of_path_car.yaw)));
+    path_y.push_back(end_of_path_car.y - sin(deg2rad(end_of_path_car.yaw)));
+    path_x.push_back(end_of_path_car.x);
+    path_y.push_back(end_of_path_car.y);
   }
 
   /*
    * Add three more points
    */
-  vector<double> xy1 = getXY(car.s + 30, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
-  vector<double> xy2 = getXY(car.s + 60, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
-  vector<double> xy3 = getXY(car.s + 90, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
+  vector<double> xy1 = getXY(end_of_path_car.s + 30, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
+  vector<double> xy2 = getXY(end_of_path_car.s + 60, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
+  vector<double> xy3 = getXY(end_of_path_car.s + 90, LANE_WIDTH_IN_M / 2 + lane * LANE_WIDTH_IN_M, map_waypoints);
   path_x.push_back(xy1[0]);
   path_x.push_back(xy2[0]);
   path_x.push_back(xy3[0]);
@@ -139,21 +137,21 @@ void Trajectory::plot_spline() {
 
 void Trajectory::prepare_plot() {
 
-  detail_plot->scale(car.x, car.y);
+  detail_plot->scale(main_car.x, main_car.y);
 
   main_plot->prepare_plot_with_3_lines();
   main_plot->plot_waypoints(map_waypoints);
-  main_plot->plot_car_position(car);
+  main_plot->plot_car_position(main_car);
 
   detail_plot->prepare_plot_with_3_lines();
   detail_plot->plot_waypoints(map_waypoints);
-  detail_plot->plot_car_position(car);
+  detail_plot->plot_car_position(main_car);
 }
 
 void Trajectory::calculate_new_trajectory() {
-  car_type reference = determine_reference(car, previous_path);
+  car_type reference = determine_reference(previous_path);
 
-  tk::spline s = getSpline(car, lane, reference, previous_path, map_waypoints, main_plot, detail_plot);
+  tk::spline s = getSpline(reference, previous_path, map_waypoints, main_plot, detail_plot);
 
   /*
    * Take from previous path
@@ -176,8 +174,8 @@ void Trajectory::calculate_new_trajectory() {
   /*
    * Calculate new ones
    */
-  double last_x_pos = car.x;
-  double last_y_pos = car.y;
+  double last_x_pos = end_of_path_car.x;
+  double last_y_pos = end_of_path_car.y;
   if (size > 0) {
     last_x_pos = previous_path[size - 1].x;
     last_y_pos = previous_path[size - 1].y;
@@ -222,17 +220,23 @@ void Trajectory::determine_speed() {
 
   target_speed = MAX_SPEED;
 
+//  std::cout << " check for other cars:";
+//  std::cout << " car.s:" << main_car.s << "-";
+//  std::cout << " car.d:" << main_car.d << std::endl;
   for (int index = 0; index < sensor_data.size(); index++) {
-    if (sensor_data[index].s > car.s && sensor_data[index].s < car.s + 30.0 &&
+//    std::cout << "sensor s:" << sensor_data[index].s;
+//    std::cout << " sensor d:" << sensor_data[index].d << std::endl;
+    if (sensor_data[index].s > main_car.s && sensor_data[index].s < main_car.s + 30.0 &&
         fabs(lane * LANE_WIDTH_IN_M + LANE_WIDTH_IN_M / 2 - sensor_data[index].d) < LANE_WIDTH_IN_M / 2) {
       /*
        * Calculate speed of vehicle
        */
       double vehicle_speed =
           sqrt(sensor_data[index].vx * sensor_data[index].vx + sensor_data[index].vy * sensor_data[index].vy);
-      std::cout << "Vechile(" + std::to_string(sensor_data[index].id) + ") detected with speed(mpi) "
-                   + std::to_string(vehicle_speed);
-      std::cout << "d:" + std::to_string(sensor_data[index].d);
+//      std::cout << "Vechile(" + std::to_string(sensor_data[index].id) + ") detected with speed(mpi) "
+//                   + std::to_string(vehicle_speed);
+//      std::cout << ",d:" + std::to_string(sensor_data[index].d);
+//      std::cout << ",s:" + std::to_string(sensor_data[index].s) << std::endl;
 
       if (vehicle_speed < target_speed) {
         target_speed = vehicle_speed;
@@ -240,13 +244,17 @@ void Trajectory::determine_speed() {
     }
   }
 
-  if (reference_velocity < target_speed) {
-    reference_velocity += MAX_ACCELERATION;
-    accelerate = true;
+  accelerate = false;
+  decelerate = false;
+  double smooth_factor = 1;
+  if (fabs(target_speed - reference_velocity) < 10) {
+    smooth_factor = fabs(target_speed - reference_velocity) / MAX_SPEED;
   }
-
-  if (reference_velocity > target_speed) {
-    reference_velocity -= MAX_ACCELERATION;
+  if (reference_velocity <= (target_speed - MAX_ACCELERATION)) {
+    reference_velocity += MAX_ACCELERATION * smooth_factor;
+    accelerate = true;
+  } else if (reference_velocity > target_speed) {
+    reference_velocity -= MAX_ACCELERATION * smooth_factor;
     reference_velocity = fmax(0.0, reference_velocity);
     decelerate = true;
   }
@@ -266,19 +274,46 @@ void Trajectory::post_processing() {
  */
 double Trajectory::costs () {
   double costs = 1 * (1 - target_speed / MAX_SPEED) +
-                 1 * (fabs(lane - car.current_lane) / NO_OF_LANES);
+                 1 * (fabs(lane - end_of_path_car.current_lane) / NO_OF_LANES);
+
+
+  return costs;
+}
+
+/*
+ * Determine for collision
+ */
+bool Trajectory::check_for_collision() {
+
+  // keep lane should always be possible with decelerate
+  if (event == KEEP_LANE) {
+    return false;
+  }
 
   switch (event) {
     case KEEP_LANE:
-      std::cout << "Costs of event KEEP_LANE:" << costs << std::endl;
+      std::cout << "KEEP_LANE";
       break;
     case LANGE_CHANGE_RIGHT:
-      std::cout << "Costs of event LANE_CHANGE_RIGHT:" << costs << std::endl;
+      std::cout << "LANE_CHANGE_RIGHT";
       break;
     case LANE_CHANGE_LEFT:
-      std::cout << "Costs of event LANE_CHANGE_LEFT:" << costs << std::endl;
+      std::cout << "LANE_CHANGE_LEFT";
       break;
   }
+  std::cout << " check for collision:";
+  std::cout << " car.s:" << main_car.s << "-";
+  std::cout << " car.d:" << main_car.d << std::endl;
 
-  return costs;
+  for (int index = 0; index < sensor_data.size(); index++) {
+    std::cout << "sensor s:" << sensor_data[index].s;
+    std::cout << " sensor d:" << sensor_data[index].d << std::endl;
+    if (sensor_data[index].s > (main_car.s - 20) && sensor_data[index].s < (main_car.s + 20) &&
+        fabs(main_car.d - sensor_data[index].d) < LANE_WIDTH_IN_M / 2) {
+      std::cout << std::endl;
+      return true;
+    }
+  }
+
+  return false;
 }

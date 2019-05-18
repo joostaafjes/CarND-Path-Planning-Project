@@ -14,6 +14,7 @@
 class Trajectory {
  public:
   Trajectory(const car_type &car,
+             const car_type &end_of_path_car,
              lane_change_event_enum event,
              int lane,
              double reference_velocity,
@@ -27,8 +28,9 @@ class Trajectory {
   void plot_next_val();
   void post_processing();
   double costs ();
+  bool check_for_collision();
 
-  car_type car;
+  car_type main_car, end_of_path_car;
   lane_change_event_enum event;
   int lane;
   double reference_velocity;
@@ -42,13 +44,11 @@ class Trajectory {
   double target_speed;
 
  private:
-  car_type determine_reference(const car_type &car, const vector<xy_type> &previous_path);
+  car_type determine_reference(const vector<xy_type> &previous_path);
   xy_type convert_to_global_coordinates(car_type &reference, xy_type &xy);
   xy_type convert_to_car_coordinates(const car_type &reference, const xy_type &xy);
   void determine_speed();
-  tk::spline getSpline(const car_type &car,
-                       const int lane,
-                       const car_type &reference,
+  tk::spline getSpline(const car_type &reference,
                        const vector<xy_type> &previous_path,
                        const vector<map_waypoints_type> &map_waypoints,
                        Plot *main_plot, Plot *detail_plot);
