@@ -28,7 +28,7 @@ Also it will calculate costs for each trajectory that can be used for choosing t
 The issues I have experienced during the project are:
 - Calculating the speed. Initially I derived the speed from the trajectory that I got back from the simulator. This didn't work out very well, so I changed this by keeping my own reference velocity.
 - I implemented a plotting class to plot a global and detail of the trajectory. This gave a lot of insight.
-- Currently I experience acceleration and jurk issues when changing lanes. This should be improved. Please advise how to do this. Thx
+- I got jurk and speed issues during change lanes. The cause was that I used the car position in stead of the 'end of path' cars position. After fixing this, it all went smoothly.
 
 ## Improvements
 
